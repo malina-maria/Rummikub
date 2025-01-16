@@ -70,6 +70,9 @@ public class Table {
         addRow(set.getTiles());
     }
 
+    public void removeRow(int row){ this.table.remove(row);}
+    public void removeTile(int row, int col) {this.table.get(row).remove(col);}
+
     // Place tile at end of given set
     public void placeTile(int row, Tile tile){
         if (!isRow(row))

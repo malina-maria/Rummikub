@@ -32,7 +32,7 @@ public class TileManipulation extends TileAction {
         }
 
         for(int i:setIndices) {
-            table.table.remove(i);
+            table.removeRow(i);
         }
         if (new HashSet<>(tilesToAdd).containsAll(tilesToRemove) && countRackTiles>0) {
             for (List<Tile> newSet : newSets) {
