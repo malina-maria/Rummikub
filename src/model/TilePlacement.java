@@ -3,6 +3,9 @@ package model;
 import java.util.List;
 
 public class TilePlacement extends TileAction{
+    private String rackTile;
+    private int destinationSet;
+    private int destinationTileIndex;
 
     //Constructs the TilePlacement object
     public TilePlacement(String rackTile, int destinationSet, int destinationTileIndex){
