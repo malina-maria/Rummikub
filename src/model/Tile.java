@@ -30,7 +30,14 @@ public class Tile {
         return (this.number==0 && color==null);
     }
 
+    // I want toString to return in format CN, where C is color (R = RED, B = BLACK, Y = YELLOW, b = BLUE) and N is number
     public String toString(){
-        return number + " | " + color;
+        String toReturn = "";
+        if (color!=null) {
+            toReturn = color.toString().substring(0,1) + number;
+        } else {
+            toReturn = "J";
+        }
+        return toReturn;
     }
 }

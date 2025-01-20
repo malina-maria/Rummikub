@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class TileGenerator {
-    public List<Tile> generate(){
+    public static List<Tile> generate(){
         List<Tile> tileList = new ArrayList<>();
         for (int i = 1; i < 14; i++) {
             for (TileColor color : TileColor.values()) {

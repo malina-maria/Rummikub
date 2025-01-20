@@ -2,6 +2,7 @@ package model;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 
 public class Table {
@@ -26,6 +27,28 @@ public class Table {
         return copy;
     }
 
+    public void reset(){
+        this.table = new ArrayList<>();
+        ROW_NUMBERING = new ArrayList<>();
+    }
+
+    public String toString(){
+        // Create a string representation of the table
+        // First row is COLUMN_NUMBERING
+        // First column is the ROW_NUMBERING
+        // The table contains of tile like structures
+        StringBuilder tableString = new StringBuilder();
+        tableString.append(COLUMN_NUMBERING.get(0));
+        tableString.append("\n");
+        for (int i = 0; i < this.table.size(); i++) {
+            tableString.append(ROW_NUMBERING.get(i));
+            for (int j = 0; j < this.table.get(i).size(); j++) {
+                tableString.append(this.table.get(i).get(j).toString());
+            }
+            tableString.append("\n");
+        }
+        return tableString.toString();
+    }
 
     public Sets convertRowToSet(List<Tile> row){
         Sets potentialSet = new Run(row);
@@ -65,29 +88,30 @@ public class Table {
 
     public void addRow(List<Tile> row){
         this.table.add(row);
+        int rowCount = ROW_NUMBERING.size() + 1;
+        ROW_NUMBERING.add( rowCount + " ");
     }
     public void addSet(Sets set){
         addRow(set.getTiles());
     }
 
     public void removeRow(int row){ this.table.remove(row);}
-    public void removeTile(int row, int col) {this.table.get(row).remove(col);}
-
-    // Place tile at end of given set
-    public void placeTile(int row, Tile tile){
-        if (!isRow(row))
-            throw new IndexOutOfBoundsException("Row index " + row + " is out of bounds.");
-        if (tile == null) {
-            throw new IllegalArgumentException("Cannot add a null tile to the row.");
-        }
-        this.table.get(row).add(tile);
+    public void removeTile(int row, Tile tile) {
+        this.table.get(row).remove(tile);
+        if (table.get(row).isEmpty())
+            this.removeRow(row);
     }
 
-    public Tile drawFromPool(List<Tile> pool){
-        int index =  (int) (Math.random() * pool.size());
-        Tile tileToReturn = pool.get(index);
-        pool.remove(index);
-        return tileToReturn;
+    // Place tile at end of given set
+    public void placeTile(int row, int col, Tile tile){
+        if (!isRow(row))
+            this.addRow(new ArrayList<>());
+        if (!isTile(row, col))
+            this.table.get(row).add(tile);
+        if (tile == null || !(tile instanceof Tile)) {
+            throw new IllegalArgumentException("Cannot add a null tile to the row.");
+        }
+        this.table.get(row).add(col, tile);
     }
 
 
@@ -109,11 +133,12 @@ public class Table {
         return score >= 30;
     }
 
-    public boolean isTableValid(Table copy){
-        for (int i = 0; i < copy.table.size(); i++) {
-            if (!copy.getSet(i).isValid())
+    public boolean isTableValid(){
+        for (int i = 0; i < this.table.size(); i++) {
+            if (this.getSet(i) == null || !this.getSet(i).isValid())
                 return false;
         }
         return true;
     }
+
 }
