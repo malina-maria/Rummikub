@@ -7,7 +7,7 @@ import java.util.List;
 
 public class Table {
     List<List<Tile>> table;
-    private static final List<String> COLUMN_NUMBERING = new ArrayList<>(Arrays.asList(" 0 | 1 | 2  3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 "));
+    private static final List<String> COLUMN_NUMBERING = new ArrayList<>(Arrays.asList("   | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 "));
     private static List<String> ROW_NUMBERING;
 
     public Table(){
@@ -20,7 +20,7 @@ public class Table {
         for (int i = 0; i < table.size(); i++) {
             List<Tile> row = new ArrayList<>();
             for (int j = 0; j < table.get(i).size(); j++) {
-                row.add(new Tile(this.table.get(i).get(j)));
+                row.add(new Tile(this.table.get(i).get(j).getNumber(), this.table.get(i).get(j).getColor()));
             }
             copy.table.add(row);
         }
@@ -43,7 +43,7 @@ public class Table {
         for (int i = 0; i < this.table.size(); i++) {
             tableString.append(ROW_NUMBERING.get(i));
             for (int j = 0; j < this.table.get(i).size(); j++) {
-                tableString.append(this.table.get(i).get(j).toString());
+                tableString.append("|" + this.table.get(i).get(j).toString());
             }
             tableString.append("\n");
         }
@@ -88,8 +88,8 @@ public class Table {
 
     public void addRow(List<Tile> row){
         this.table.add(row);
-        int rowCount = ROW_NUMBERING.size() + 1;
-        ROW_NUMBERING.add( rowCount + " ");
+        int rowCount = ROW_NUMBERING.size();
+        ROW_NUMBERING.add( rowCount + "  ");
     }
     public void addSet(Sets set){
         addRow(set.getTiles());
@@ -104,14 +104,21 @@ public class Table {
 
     // Place tile at end of given set
     public void placeTile(int row, int col, Tile tile){
-        if (!isRow(row))
-            this.addRow(new ArrayList<>());
-        if (!isTile(row, col))
-            this.table.get(row).add(tile);
         if (tile == null || !(tile instanceof Tile)) {
             throw new IllegalArgumentException("Cannot add a null tile to the row.");
         }
-        this.table.get(row).add(col, tile);
+
+        if (!isRow(row)) {
+            this.addRow(new ArrayList<>());
+        }
+
+        if (!isTile(row, col)) {
+            this.table.get(row).add(tile);
+        } else {
+            this.table.get(row).add(col, tile);
+        }
+
+
     }
 
 

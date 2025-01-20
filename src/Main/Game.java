@@ -2,6 +2,7 @@ package Main;
 import model.*;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Scanner;
 
@@ -73,7 +74,7 @@ public class Game {
             while (!input.equals("ENDMOVE")) {
                 // Parse input into Action~String, where ~is the separator
                 String[] actionInput = input.split("~");
-                if (actionInput[0].equals("MOVE") && !currentPlayer.isInitialMeld()) {
+                if (actionInput[0].equals("MOVE") && currentPlayer.madeInitialMeld()) {
                     // Parse actionInput[1] into FROM_TILESET,TILE_DETAILS,TO_TILESET,TO_INDEX_IN_TILESET and turn to integers
                     String[] moveDetails = actionInput[1].split(",");
                     int fromTileSet = Integer.parseInt(moveDetails[0]);
@@ -87,7 +88,7 @@ public class Game {
                     // Parse actionInput[1] into TILE_DETAILS,TO_TILESET,TO_INDEX_IN_TILESET and turn to integers
                     String[] placeDetails = actionInput[1].split(",");
                     String tileToPlace = placeDetails[0];
-                    if (currentPlayer.isInitialMeld()){
+                    if (!currentPlayer.madeInitialMeld()){
                         tileHistory.add(tileToPlace);
                     }
                     int toTileSet = Integer.parseInt(placeDetails[1]);
@@ -106,17 +107,10 @@ public class Game {
                 input = scanner.nextLine();
                 System.out.println(currentPlayer.getRack());
             }
-
-            if (currentPlayer.isInitialMeld()){
-                int meldScore = 0;
-                for (String move:currentPlayer.getMoveHistory()){
-                    String action = move.split("~")[0];
-                    if (action.equals("PLACE")){
-                        for (String tile:tileHistory){
-                            meldScore += Integer.parseInt(tile);
-                        }
-                    }
-                }
+            System.out.println("Is initial meld: " + currentPlayer.madeInitialMeld());
+            if (!currentPlayer.madeInitialMeld()) {
+                int meldScore = computeMeldScore(tileHistory);
+                System.out.println("Meld score: " + meldScore);
 
                 if (meldScore < 30){
                     System.out.println("Invalid initial meld");
@@ -128,7 +122,7 @@ public class Game {
                 }
             }
 
-            if (!currentPlayer.isInitialMeld()) {
+            if (currentPlayer.madeInitialMeld()) {
                 if (copy.isTableValid()) {
                     this.table = copy;
                     this.update();
@@ -139,6 +133,8 @@ public class Game {
                 }
             }
 
+
+            System.out.println("Previous player's moves: " + currentPlayer.getMoveHistory());
             if (currentPlayerIndex!=PLAYER_COUNT-1) {
                 currentPlayerIndex = currentPlayerIndex + 1;
             } else currentPlayerIndex = 0;
@@ -146,6 +142,79 @@ public class Game {
             //System.out.println("Current player: " + players[currentPlayerIndex].getName());
         }
         System.out.println("The winner is: " + getRoundWinner().getName());
+    }
+
+
+    int computeMeldScore(List<String> tileHistory) {
+        int meldScore = 0;
+        boolean hasJoker = tileHistory.contains("J");
+
+        List<Integer> numbers = new ArrayList<>();
+
+        // Extract numbers from tiles and ignore Joker for now
+        for (String tile : tileHistory) {
+            if (!tile.equals("J")) {
+                numbers.add(Integer.parseInt(tile.substring(1)));
+            }
+        }
+
+        // Sort numbers for easier processing of runs
+        Collections.sort(numbers);
+
+        if (hasJoker) {
+            int jokerNumber = 0;
+
+            // Check if it's a run or a group
+            if (isRun(numbers)) {
+                // Find the missing number in the run
+                jokerNumber = findMissingInRun(numbers);
+            } else if (isGroup(numbers)) {
+                // In a group, all numbers are the same
+                jokerNumber = numbers.get(0);
+            }
+
+            // Add jokerNumber to the score
+            meldScore += jokerNumber;
+        }
+
+        // Add all other tile numbers to the score
+        for (int number : numbers) {
+            meldScore += number;
+        }
+
+        return meldScore;
+    }
+
+    // Helper method to check if numbers form a run
+    private boolean isRun(List<Integer> numbers) {
+        for (int i = 1; i < numbers.size(); i++) {
+            if (numbers.get(i) != numbers.get(i - 1) + 1) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // Helper method to check if numbers form a group
+    private boolean isGroup(List<Integer> numbers) {
+        int firstNumber = numbers.get(0);
+        for (int number : numbers) {
+            if (number != firstNumber) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // Helper method to find the missing number in a run
+    private int findMissingInRun(List<Integer> numbers) {
+        for (int i = 1; i < numbers.size(); i++) {
+            if (numbers.get(i) != numbers.get(i - 1) + 1) {
+                return numbers.get(i - 1) + 1;
+            }
+        }
+        // If no number is missing and there's a joker, it must be the next in sequence
+        return numbers.get(numbers.size() - 1) + 1;
     }
 
     public void update(){

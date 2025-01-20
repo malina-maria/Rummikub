@@ -48,7 +48,7 @@ public abstract class Player {
             player.updateScore(tile.getNumber());
     }
 
-    public boolean isInitialMeld(){
+    public boolean madeInitialMeld(){
        return madeInitialMeld;
     }
 

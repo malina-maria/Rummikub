@@ -31,7 +31,7 @@ public class Group implements Sets {
                 return false;
         }
         for (int number:numbers.subList(1, numbers.size())){
-            if (number!=0 && numberSet.add(number))
+            if (number!=0 && !numberSet.add(number))
                 return false;
         }
         return true;
