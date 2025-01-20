@@ -57,8 +57,14 @@ public class Game {
                 player.getRack().forEach(tile -> player.updateScore(tile.getNumber()));
             }
         }
-        if (winner == null){
-            int minScore = players[0].getScore();
+        if (winner != null){
+            // Winner score is the positive sum of the other players' scores
+            winner.updateScore(winnerScore);// Winner score is the positive sum of the other players' scores
+        }
+
+
+        if (winner == null && pool.isEmpty()){
+            int maxScore = players[0].getScore();
             for (Player player : players){
                 if (player.getScore() < minScore){
                     minScore = player.getScore();
