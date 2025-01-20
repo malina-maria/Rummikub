@@ -1,5 +1,7 @@
 package model;
 
+import java.util.List;
+
 public class TilePlacement extends TileAction{
 
     //Constructs the TilePlacement object
