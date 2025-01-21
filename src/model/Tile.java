@@ -36,7 +36,7 @@ public class Tile {
         if (color!=null) {
             toReturn = color.toString().substring(0,1) + number;
         } else {
-            toReturn = "J";
+            toReturn = " J ";
         }
         return toReturn;
     }

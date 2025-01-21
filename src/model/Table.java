@@ -41,13 +41,14 @@ public class Table {
         tableString.append(COLUMN_NUMBERING.get(0));
         tableString.append("\n");
         for (int i = 0; i < this.table.size(); i++) {
-            tableString.append(ROW_NUMBERING.get(i));
+            tableString.append(i + "  ");
             for (int j = 0; j < this.table.get(i).size(); j++) {
-                tableString.append("|" + this.table.get(i).get(j).toString());
+                tableString.append("|").append(this.table.get(i).get(j).toString());
             }
             tableString.append("\n");
         }
         return tableString.toString();
+
     }
 
     public Sets convertRowToSet(List<Tile> row){
@@ -88,8 +89,6 @@ public class Table {
 
     public void addRow(List<Tile> row){
         this.table.add(row);
-        int rowCount = ROW_NUMBERING.size();
-        ROW_NUMBERING.add( rowCount + "  ");
     }
     public void addSet(Sets set){
         addRow(set.getTiles());
@@ -103,21 +102,30 @@ public class Table {
     }
 
     // Place tile at end of given set
-    public void placeTile(int row, int col, Tile tile){
+    public void placeTile(int row, int col, Tile tile) {
         if (tile == null || !(tile instanceof Tile)) {
             throw new IllegalArgumentException("Cannot add a null tile to the row.");
         }
 
-        if (!isRow(row)) {
+        // Ensure the row exists
+        while (this.table.size() <= row) {
             this.addRow(new ArrayList<>());
         }
 
-        if (!isTile(row, col)) {
-            this.table.get(row).add(tile);
-        } else {
-            this.table.get(row).add(col, tile);
+        // Ensure the row has enough columns
+        List<Tile> targetRow = this.table.get(row);
+        while (targetRow.size() <= col) {
+            targetRow.add(null); // or a dummy Tile if needed
         }
-
+        // Place the tile at the specified column
+        // If position is already occupied, move tiles to the right and ad the tile in the newly emptied position
+        if (targetRow.get(col) != null) {
+            targetRow.add(col, targetRow.get(targetRow.size() - 1));
+            for (int i = targetRow.size() - 1; i > col; i--) {
+                targetRow.set(i, targetRow.get(i - 1));
+            }
+        }
+        targetRow.set(col, tile);
 
     }
 

@@ -1,10 +1,7 @@
 package Main;
 import model.*;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Scanner;
+import java.util.*;
 
 public class Game {
     private final static int PLAYER_COUNT = 2;
@@ -67,12 +64,14 @@ public class Game {
             Player currentPlayer = players[currentPlayerIndex];
             Table copy = this.table.makeCopy();
             List<String> tileHistory = new ArrayList<>();
+            Map<Integer, List<String>> tileSets = new HashMap<>();
             System.out.println("- - - Current player: " + currentPlayer.getName() + " - - -");
             System.out.println(currentPlayer.getRack());
             System.out.println("Choose between MOVE, PLACE, DRAW, ENDMOVE");
             String input = scanner.nextLine();
+
             while (!input.equals("ENDMOVE")) {
-                // Parse input into Action~String, where ~is the separator
+                // Parse input into Action~String, where ~ is the separator
                 String[] actionInput = input.split("~");
                 if (actionInput[0].equals("MOVE") && currentPlayer.madeInitialMeld()) {
                     // Parse actionInput[1] into FROM_TILESET,TILE_DETAILS,TO_TILESET,TO_INDEX_IN_TILESET and turn to integers
@@ -84,62 +83,92 @@ public class Game {
                     TileMovement tileMovement = new TileMovement(fromTileSet, tileToMove, toTileSet, toIndexInTileSet);
                     tileMovement.makeMove(copy);
                     System.out.println(copy.toString());
-                } else if (actionInput[0].equals("PLACE")){
+                } else if (actionInput[0].equals("PLACE")) {
                     // Parse actionInput[1] into TILE_DETAILS,TO_TILESET,TO_INDEX_IN_TILESET and turn to integers
                     String[] placeDetails = actionInput[1].split(",");
                     String tileToPlace = placeDetails[0];
-                    if (!currentPlayer.madeInitialMeld()){
-                        tileHistory.add(tileToPlace);
-                    }
+                    tileHistory.add(tileToPlace);
                     int toTileSet = Integer.parseInt(placeDetails[1]);
                     int toIndexInTileSet = Integer.parseInt(placeDetails[2]);
                     TilePlacement tilePlacement = new TilePlacement(tileToPlace, toTileSet, toIndexInTileSet);
                     tilePlacement.makeMove(copy, currentPlayer.getRack());
+                    if (!currentPlayer.madeInitialMeld()){
+                        //Store all the tiles placed in the table, together with the associated set number
+                        if (tileSets.containsKey(toTileSet)){
+                            tileSets.get(toTileSet).add(tileToPlace);
+                        } else {
+                            List<String> tileList = new ArrayList<>();
+                            tileList.add(tileToPlace);
+                            tileSets.put(toTileSet, tileList);
+                        }
+                    }
                     System.out.println(copy.toString());
-                } else if (actionInput[0].equals("DRAW")){
+                } else if (actionInput[0].equals("DRAW") && !currentPlayer.getMoveHistory().contains("PLACE") && !currentPlayer.getMoveHistory().contains("MOVE")) {
                     currentPlayer.drawFromPool(pool, 1);
                     System.out.println(copy.toString());
                     // exit while loop
                     break;
+                } else if (actionInput[0].equals("DRAW")){
+                    input = "";
+                    System.out.println("Sorry, you can't draw now, since you already moved this turn.");
+                } else {
+                    System.out.println("Sorry, wrong input. Please try again!");
                 }
-                currentPlayer.addToMoveHistory(input);
+                if (!input.contains("DRAW") || !input.contains("ENDMOVE"))
+                    currentPlayer.addToMoveHistory(input);
                 System.out.println("Choose between MOVE, PLACE, DRAW, ENDMOVE");
                 input = scanner.nextLine();
                 System.out.println(currentPlayer.getRack());
             }
-            System.out.println("Is initial meld: " + currentPlayer.madeInitialMeld());
-            if (!currentPlayer.madeInitialMeld()) {
-                int meldScore = computeMeldScore(tileHistory);
-                System.out.println("Meld score: " + meldScore);
 
-                if (meldScore < 30){
-                    System.out.println("Invalid initial meld");
-                    currentPlayer.drawFromPool(pool, 1);
-                    this.update();
-                    continue;
-                } else {
-                    currentPlayer.setInitialMeld();
+            if (!input.equals("DRAW")) {
+                System.out.println("Made initial meld: " + currentPlayer.madeInitialMeld());
+                if (!currentPlayer.madeInitialMeld()) {
+                    int meldScore = computeMeldScore(tileHistory);
+                    System.out.println("Meld score: " + meldScore);
+                    // If there are any sets with less than 3 tiles in tileSets, the initial meld is invalid
+                    for (int set : tileSets.keySet()) {
+                        if (tileSets.get(set).size() < 3) {
+                            meldScore = 0;
+                            break;
+                        }
+                    }
+                    if (meldScore < 30) {
+                        System.out.println("Invalid initial meld");
+                        currentPlayer.drawFromPool(pool, 1);
+                        currentPlayer.getMoveHistory().clear();
+                        // Place all tiles back in rack
+                        for (String tile : tileHistory) {
+                            currentPlayer.getRack().add(new Tile(Integer.parseInt(tile.substring(1)), TileColor.valueOf(tile.substring(0, 1))));
+                        }
+                    } else {
+                        currentPlayer.setInitialMeld();
+                    }
+                }
+
+                if (currentPlayer.madeInitialMeld()) {
+                    if (copy.isTableValid()) {
+                        this.table = copy;
+                        for (String tile : tileHistory) {
+                            currentPlayer.getRack().removeIf(rackTile -> rackTile.toString().equals(tile));
+                        }
+                    } else {
+                        System.out.println("Invalid moves");
+                        currentPlayer.drawFromPool(pool, 1);
+                        currentPlayer.getMoveHistory().clear();
+                        // Place all tiles back in rack
+                        for (String tile : tileHistory) {
+                            currentPlayer.getRack().add(new Tile(Integer.parseInt(tile.substring(1)), TileColor.valueOf(tile.substring(0, 1))));
+                        }
+                    }
                 }
             }
-
-            if (currentPlayer.madeInitialMeld()) {
-                if (copy.isTableValid()) {
-                    this.table = copy;
-                    this.update();
-                } else {
-                    System.out.println("Invalid moves");
-                    currentPlayer.drawFromPool(pool, 1);
-                    this.update();
-                }
-            }
-
-
             System.out.println("Previous player's moves: " + currentPlayer.getMoveHistory());
+            currentPlayer.getMoveHistory().clear();
+            this.update();
             if (currentPlayerIndex!=PLAYER_COUNT-1) {
                 currentPlayerIndex = currentPlayerIndex + 1;
             } else currentPlayerIndex = 0;
-
-            //System.out.println("Current player: " + players[currentPlayerIndex].getName());
         }
         System.out.println("The winner is: " + getRoundWinner().getName());
     }
@@ -224,7 +253,8 @@ public class Game {
 
     // End the game and announce the winner
     private boolean isRoundOver() {
-        return getRoundWinner() != null;
+        Player roundWinner = getRoundWinner();
+        return roundWinner != null;
     }
 
     // Get the winner based on who emptied rack or who has lowest score

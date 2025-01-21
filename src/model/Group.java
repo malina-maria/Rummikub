@@ -13,27 +13,24 @@ public class Group implements Sets {
 
     @Override
     public boolean isValid() {
-        List<TileColor> colors = new ArrayList<>();
-        List<Integer> numbers = new ArrayList<>();
-        if (tiles.size()<3 || tiles.size()>4) {
+        if (tiles.size() < 3 || tiles.size() > 4) {
             return false;
-        }
-        for (Tile current : tiles) {
-            colors.add(current.getColor());
-            numbers.add(current.getNumber());
         }
 
         Set<TileColor> colorSet = new HashSet<>();
-        Set<Integer> numberSet = new HashSet<>();
-        for (TileColor color : colors) {
-            if (color != null && !colorSet.add(color))
-                // If add() returns false, it means the color is already in the set
+        int firstNumber = tiles.getFirst().getNumber();
+
+        for (Tile current : tiles) {
+            // Check if the number matches the first tile's number
+            if (current.getNumber()!=0 && current.getNumber() != firstNumber) {
                 return false;
+            }
+            // Check if the color is unique
+            if (current.getColor()!= null && !colorSet.add(current.getColor())) {
+                return false; // Duplicate color found
+            }
         }
-        for (int number:numbers.subList(1, numbers.size())){
-            if (number!=0 && !numberSet.add(number))
-                return false;
-        }
+
         return true;
     }
 
