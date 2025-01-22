@@ -67,13 +67,28 @@ public class Game {
             Map<Integer, List<String>> tileSets = new HashMap<>();
             System.out.println("- - - Current player: " + currentPlayer.getName() + " - - -");
             System.out.println(currentPlayer.getRack());
-            System.out.println("Choose between MOVE, PLACE, DRAW, ENDMOVE");
+            System.out.println("Choose between MOVE, PLACE, DRAW, HAND, ENDMOVE");
             String input = scanner.nextLine();
 
             while (!input.equals("ENDMOVE")) {
                 // Parse input into Action~String, where ~ is the separator
                 String[] actionInput = input.split("~");
-                if (actionInput[0].equals("MOVE") && currentPlayer.madeInitialMeld()) {
+                //check how many arguments are in actionInput[1] separated by ","
+                if (actionInput[0].equals("MOVE") && currentPlayer.madeInitialMeld() && actionInput[1].split(",").length != 4) {
+                    System.out.println("Invalid input. Please try again!");
+                    input = scanner.nextLine();
+                    continue;
+                } else if (actionInput[0].equals("PLACE") && actionInput[1].split(",").length != 3) {
+                    System.out.println("Invalid input. Please try again!");
+                    input = scanner.nextLine();
+                    continue;
+                }
+
+                if (input.equals("HAND")) {
+                    System.out.println("HAND~" + currentPlayer.getRack());
+                } else if (actionInput[0].equals("MOVE") && !currentPlayer.madeInitialMeld()) {
+                    System.out.println("You can't move tiles before making the initial meld.");
+                } else if (actionInput[0].equals("MOVE") && currentPlayer.madeInitialMeld()) {
                     // Parse actionInput[1] into FROM_TILESET,TILE_DETAILS,TO_TILESET,TO_INDEX_IN_TILESET and turn to integers
                     String[] moveDetails = actionInput[1].split(",");
                     int fromTileSet = Integer.parseInt(moveDetails[0]);
@@ -103,18 +118,19 @@ public class Game {
                         }
                     }
                     System.out.println(copy.toString());
-                } else if (actionInput[0].equals("DRAW") && !currentPlayer.getMoveHistory().contains("PLACE") && !currentPlayer.getMoveHistory().contains("MOVE")) {
+                } else if (input.equals("DRAW") && currentPlayer.getMoveHistory().stream().noneMatch(move -> move.contains("PLACE") || move.contains("MOVE"))) {
+                    System.out.println(currentPlayer.getMoveHistory());
                     currentPlayer.drawFromPool(pool, 1);
-                    System.out.println(copy.toString());
                     // exit while loop
                     break;
-                } else if (actionInput[0].equals("DRAW")){
+                } else if (input.equals("DRAW")){
                     input = "";
                     System.out.println("Sorry, you can't draw now, since you already moved this turn.");
                 } else {
                     System.out.println("Sorry, wrong input. Please try again!");
                 }
-                if (!input.contains("DRAW") || !input.contains("ENDMOVE"))
+
+                if (input.contains("PLACE") || input.contains("MOVE"))
                     currentPlayer.addToMoveHistory(input);
                 System.out.println("Choose between MOVE, PLACE, DRAW, ENDMOVE");
                 input = scanner.nextLine();
@@ -139,7 +155,7 @@ public class Game {
                         currentPlayer.getMoveHistory().clear();
                         // Place all tiles back in rack
                         for (String tile : tileHistory) {
-                            currentPlayer.getRack().add(new Tile(Integer.parseInt(tile.substring(1)), TileColor.valueOf(tile.substring(0, 1))));
+                            currentPlayer.getRack().add(new Tile(Integer.parseInt(tile.substring(1)), TileColor.fromAbbreviation(tile.substring(0, 1))));
                         }
                     } else {
                         currentPlayer.setInitialMeld();

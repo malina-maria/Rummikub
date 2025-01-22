@@ -13,4 +13,14 @@ public enum TileColor {
             case RED -> "R";
         };
     }
+
+    public static TileColor fromAbbreviation(String abbreviation) {
+        return switch (abbreviation) {
+            case "B" -> BLACK;
+            case "b" -> BLUE;
+            case "Y" -> YELLOW;
+            case "R" -> RED;
+            default -> throw new IllegalArgumentException("Invalid TileColor abbreviation: " + abbreviation);
+        };
+    }
 }

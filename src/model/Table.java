@@ -120,8 +120,8 @@ public class Table {
         // Place the tile at the specified column
         // If position is already occupied, move tiles to the right and ad the tile in the newly emptied position
         if (targetRow.get(col) != null) {
-            targetRow.add(col, targetRow.get(targetRow.size() - 1));
-            for (int i = targetRow.size() - 1; i > col; i--) {
+            targetRow.add(targetRow.get(targetRow.size() - 1));
+            for (int i = targetRow.size() - 2; i > col; i--) {
                 targetRow.set(i, targetRow.get(i - 1));
             }
         }
@@ -129,24 +129,6 @@ public class Table {
 
     }
 
-
-    public boolean isValidInitialMeld(Sets set){
-        if (!set.isValid())
-            return false;
-        int score = 0;
-        for (int i = 0; i < set.getTiles().size(); i++) {
-            Tile tile = set.getTiles().get(i);
-            if (!tile.isJoker())
-               score += tile.getNumber();
-            else {
-               if (set instanceof Group)
-                   score += (i > 0) ? set.getTiles().get(i - 1).getNumber() : set.getTiles().get(i + 1).getNumber();
-               else if (set instanceof Run)
-                   score += (i > 0) ? set.getTiles().get(i - 1).getNumber() + 1 : set.getTiles().get(i + 1).getNumber() - 1;
-            }
-        }
-        return score >= 30;
-    }
 
     public boolean isTableValid(){
         for (int i = 0; i < this.table.size(); i++) {
