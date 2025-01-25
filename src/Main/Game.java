@@ -27,6 +27,7 @@ public class Game {
         while (continueGame) {
             System.out.println("Game Started!");
             resetRound();
+            System.out.println("Tiles in pool: " + pool.size());
             distributeTiles();
             playTurns();
             System.out.println("Play another turn?");
@@ -56,6 +57,8 @@ public class Game {
         for (Player player : players) {
             player.drawFromPool(pool, 14);
         }
+        players[0].getRack().add(new Tile(0, null));
+        players[0].getRack().add(new Tile(0, null));
     }
 
     // Play turns until the game is over
@@ -188,6 +191,9 @@ public class Game {
                     }
                 }
             }
+
+            System.out.println("Is pool empty? " + pool.isEmpty());
+            System.out.println("Is current player's rack empty? " + currentPlayer.getRack().isEmpty());
             System.out.println("Previous player's moves: " + currentPlayer.getMoveHistory());
             currentPlayer.getMoveHistory().clear();
             this.update();
@@ -225,36 +231,41 @@ public class Game {
 
             // Extract numbers from tiles and ignore Jokers for now
             for (Tile tile : tileHistory) {
-                if (tile.isJoker()) {
+                if (!tile.isJoker()) {
                     numbers.add(tile.getNumber());
                 }
             }
 
-            // If there are jokers, integrate them into the melding score
-            // If there are more than one row in rows, iterate through them and compute the score for each row
-            if (jokerCount > 0) {
-                int jokerValue = 0;
-
-                // Check if it's a run or a group
-                if (isRunWithJokers(numbers, (int) jokerCount)) {
-                    System.out.println("Run with jokers");
-                    // Compute run score with jokers filling the gaps
-                    meldScore = computeRunScoreWithJokers(copy, row);
-                    System.out.println("Joker value: " + meldScore);
-                } else if (isGroupWithJokers(numbers, (int) jokerCount)) {
-                    System.out.println("Group with jokers");
-                    // In a group, all numbers are the same, so assign them the group value
-                    jokerValue = numbers.get(0) * (int) jokerCount;
-                    // Add jokerValue to the score
-                    meldScore += jokerValue;
-                    System.out.println("Joker value: " + jokerValue);
+            if (jokerCount==2 && tileHistory.size()==3) {
+                int meldScoreRun = computeRunScoreWithJokers(copy, row);
+                int meldScoreGroup = numbers.getFirst() * 3;
+                meldScore = Math.max(meldScoreRun, meldScoreGroup);
+            } else {
+                // If there are jokers, integrate them into the melding score
+                // If there are more than one row in rows, iterate through them and compute the score for each row
+                if (jokerCount > 0) {
+                    int jokerValue = 0;
+                    // Check if it's a run or a group
+                    if (isRunWithJokers(numbers, (int) jokerCount)) {
+                        System.out.println("Run with jokers");
+                        // Compute run score with jokers filling the gaps
+                        meldScore = computeRunScoreWithJokers(copy, row);
+                        System.out.println("Joker value: " + meldScore);
+                    } else if (isGroupWithJokers(numbers, (int) jokerCount)) {
+                        System.out.println("Group with jokers");
+                        // In a group, all numbers are the same, so assign them the group value
+                        jokerValue = numbers.get(0) * (int) jokerCount;
+                        // Add jokerValue to the score
+                        meldScore += jokerValue;
+                        System.out.println("Joker value: " + jokerValue);
+                    }
                 }
-            }
 
-            // Add all other tile numbers to the score
-            if (!isRunWithJokers(numbers, (int) jokerCount)) {
-                for (int number : numbers) {
-                    meldScore += number;
+                // Add all other tile numbers to the score
+                if (!isRunWithJokers(numbers, (int) jokerCount)) {
+                    for (int number : numbers) {
+                        meldScore += number;
+                    }
                 }
             }
         }
@@ -264,16 +275,16 @@ public class Game {
     
     // Helper function to check if a sequence forms a valid run with jokers
     private boolean isRunWithJokers(List<Integer> numbers, int jokerCount) {
-        if (numbers.size() == 0) {
-            return false;
-        }
-        
         int jokersLeft = jokerCount;
     
         // Check if jokers can fill gaps between numbers
         for (int i = 1; i < numbers.size(); i++) {
             int gap = numbers.get(i) - numbers.get(i - 1) - 1;
             jokersLeft -= gap > 0 ? gap : 0;
+        }
+
+        if (jokerCount == 2 && numbers.size() == 1) {
+            return true;
         }
     
         // If jokers are sufficient, check if they can be added at the beginning or the end
@@ -336,6 +347,10 @@ public class Game {
             if (number != firstNumber) {
                 return false;
             }
+        }
+
+        if (jokerCount == 2 && numbers.size() == 1) {
+            return true;
         }
         return true;
     }
@@ -401,20 +416,20 @@ public class Game {
         }
 
 
-        if (winner == null && pool.isEmpty()){
-            int maxScore = players[0].getScore();
-            for (Player player : players){
-                if (player.getScore() > maxScore){
-                    maxScore = player.getScore();
-                    winner = player;
-                }
-            }
-            for (Player player:players) {
-                if (!winner.equals(player)) {
-                    winner.updateScore(-player.getScore());
-                }
-            }
-        }
+//        if (winner == null && pool.isEmpty()){
+//            int maxScore = players[0].getScore();
+//            for (Player player : players){
+//                if (player.getScore() > maxScore){
+//                    maxScore = player.getScore();
+//                    winner = player;
+//                }
+//            }
+//            for (Player player:players) {
+//                if (!winner.equals(player)) {
+//                    winner.updateScore(-player.getScore());
+//                }
+//            }
+//        }
 
 
         return winner;
