@@ -18,7 +18,17 @@ public class Group implements Sets {
         }
 
         Set<TileColor> colorSet = new HashSet<>();
-        int firstNumber = tiles.getFirst().getNumber();
+        
+        int firstNumber = -1; // Initialize to an invalid value
+        for (Tile tile : tiles) {
+            if (tile.getNumber() != 0) { // Check if the tile is not a joker
+                firstNumber = tile.getNumber();
+                break; // Found the first non-joker tile
+            }
+        }
+        if (firstNumber == -1) { // If no non-joker tiles exist, the group is invalid
+            return false;
+        }
 
         for (Tile current : tiles) {
             // Check if the number matches the first tile's number

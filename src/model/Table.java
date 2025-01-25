@@ -32,7 +32,7 @@ public class Table {
         ROW_NUMBERING = new ArrayList<>();
     }
 
-    public String toString(){
+    public String toString(){        
         // Create a string representation of the table
         // First row is COLUMN_NUMBERING
         // First column is the ROW_NUMBERING
@@ -102,7 +102,8 @@ public class Table {
     }
 
     // Place tile at end of given set
-    public void placeTile(int row, int col, Tile tile) {
+    public void placeTile(int row, int col, Tile tile) throws GameException {
+        
         if (tile == null || !(tile instanceof Tile)) {
             throw new IllegalArgumentException("Cannot add a null tile to the row.");
         }
@@ -117,6 +118,11 @@ public class Table {
         while (targetRow.size() <= col) {
             targetRow.add(null); // or a dummy Tile if needed
         }
+
+        if (targetRow.size() < col) {
+           throw new GameException("Cannot add a tile to a non-existent column.");
+        }
+
         // Place the tile at the specified column
         // If position is already occupied, move tiles to the right and ad the tile in the newly emptied position
         if (targetRow.get(col) != null) {

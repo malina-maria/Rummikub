@@ -11,52 +11,49 @@ public class Run implements Sets {
         this.tiles = tiles;
     }
 
-    //Checks if the run set is valid
+
     @Override
-    public boolean isValid(){
-        if (tiles.size()<3) {
-            return false;
+    public boolean isValid() {
+        if (tiles.size() < 3) {
+            return false; // A valid run must have at least 3 tiles
         }
-        for (int i = 0; i < tiles.size()-1; i++) {
-            Tile current = tiles.get(i);
-            Tile next = tiles.get(i+1);
 
-            //If no Jokers, check order and color
-            if (!current.isJoker() && !next.isJoker()){
-                if (next.getNumber() != current.getNumber() + 1
-                        || !next.getColor().equals(current.getColor()))
-                    return false;
+        int jokerCount = 0;
+
+        // Count jokers and check for non-jokers validity
+        for (Tile tile : tiles) {
+            if (tile.isJoker()) {
+                jokerCount++;
+            }
+        }
+
+        // Compare numbers and colors after accounting for jokers
+        int prevNumber = 0; // The previous number in the sequence
+        TileColor color = null; // Color of the run (must be the same)
+        boolean firstTile = true;
+
+        for (Tile tile : tiles) {
+            if (tile.isJoker()) {
+                // Skip jokers for now, they'll substitute for missing tiles
+                prevNumber++;
+                continue;
             }
 
-            // If Joker is current tile, check before and after tiles
-            // check:
-            // previous tile is not 13
-            // next tile is not 1
-            if (current.isJoker() && !next.isJoker()){
-                if (i!=0) {
-                    Tile previous = tiles.get(i - 1);
-                    if (next.getNumber() != previous.getNumber() + 2
-                            || !next.getColor().equals(previous.getColor()))
-                        return false;
-                } else {
-                    if (next.getNumber() == 1)
-                        return false;
+            if (firstTile) {
+                // Initialize the color and number for the first non-joker
+                color = tile.getColor();
+                prevNumber = tile.getNumber();
+                firstTile = false;
+            } else {
+                // Check if this tile continues the sequence
+                if (!tile.getColor().equals(color) || tile.getNumber() != prevNumber + 1) {
+                    return false;
                 }
-            }
-
-            if (next.isJoker() && current.getNumber() == 13)
-                return false;
-
-            //If two Jokers are placed next to each other,
-            //check validity of tiles before and after the Jokers.
-            if (current.isJoker() && next.isJoker() && i != 0 && i+1 != tiles.size()-1) {
-                Tile afterNext = tiles.get(i + 2);
-                Tile previous = tiles.get(i - 1);
-                if (afterNext.getNumber() != 2 + previous.getNumber()
-                        || afterNext.getColor().equals(previous.getColor()))
-                    return false;
+                prevNumber = tile.getNumber();
             }
         }
+
+        // If we reach here, the run is valid
         return true;
     }
 

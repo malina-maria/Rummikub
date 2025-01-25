@@ -62,29 +62,33 @@ public class Game {
     private void playTurns() throws GameException {
         while (!isRoundOver()) {
             Player currentPlayer = players[currentPlayerIndex];
+            String[] input = new String[1];
+            final boolean[] timeUp = {false};
             Table copy = this.table.makeCopy();
             List<String> tileHistory = new ArrayList<>();
             Map<Integer, List<String>> tileSets = new HashMap<>();
             System.out.println("- - - Current player: " + currentPlayer.getName() + " - - -");
-            System.out.println(currentPlayer.getRack());
-            System.out.println("Choose between MOVE, PLACE, DRAW, HAND, ENDMOVE");
-            String input = scanner.nextLine();
-
-            while (!input.equals("ENDMOVE")) {
+            while (true) {
+                System.out.println("Choose between MOVE, PLACE, DRAW, ENDMOVE");
+                System.out.println(currentPlayer.getRack());
+                input[0] = scanner.nextLine();
+                if (input[0].equals("ENDMOVE")) {
+                    break;
+                }
                 // Parse input into Action~String, where ~ is the separator
-                String[] actionInput = input.split("~");
+                String[] actionInput = input[0].split("~");
                 //check how many arguments are in actionInput[1] separated by ","
                 if (actionInput[0].equals("MOVE") && currentPlayer.madeInitialMeld() && actionInput[1].split(",").length != 4) {
                     System.out.println("Invalid input. Please try again!");
-                    input = scanner.nextLine();
+                    input[0] = scanner.nextLine();
                     continue;
                 } else if (actionInput[0].equals("PLACE") && actionInput[1].split(",").length != 3) {
                     System.out.println("Invalid input. Please try again!");
-                    input = scanner.nextLine();
+                    input[0] = scanner.nextLine();
                     continue;
                 }
 
-                if (input.equals("HAND")) {
+                if (input[0].equals("HAND")) {
                     System.out.println("HAND~" + currentPlayer.getRack());
                 } else if (actionInput[0].equals("MOVE") && !currentPlayer.madeInitialMeld()) {
                     System.out.println("You can't move tiles before making the initial meld.");
@@ -118,29 +122,26 @@ public class Game {
                         }
                     }
                     System.out.println(copy.toString());
-                } else if (input.equals("DRAW") && currentPlayer.getMoveHistory().stream().noneMatch(move -> move.contains("PLACE") || move.contains("MOVE"))) {
+                } else if (input[0].equals("DRAW") && currentPlayer.getMoveHistory().stream().noneMatch(move -> move.contains("PLACE") || move.contains("MOVE"))) {
                     System.out.println(currentPlayer.getMoveHistory());
                     currentPlayer.drawFromPool(pool, 1);
                     // exit while loop
                     break;
-                } else if (input.equals("DRAW")){
-                    input = "";
+                } else if (input[0].equals("DRAW")){
+                    input[0] = "";
                     System.out.println("Sorry, you can't draw now, since you already moved this turn.");
                 } else {
                     System.out.println("Sorry, wrong input. Please try again!");
                 }
 
-                if (input.contains("PLACE") || input.contains("MOVE"))
-                    currentPlayer.addToMoveHistory(input);
-                System.out.println("Choose between MOVE, PLACE, DRAW, ENDMOVE");
-                input = scanner.nextLine();
-                System.out.println(currentPlayer.getRack());
+                if (input[0].contains("PLACE") || input[0].contains("MOVE"))
+                    currentPlayer.addToMoveHistory(input[0]);
             }
 
-            if (!input.equals("DRAW")) {
+            if (!input[0].equals("DRAW")) {
                 System.out.println("Made initial meld: " + currentPlayer.madeInitialMeld());
                 if (!currentPlayer.madeInitialMeld()) {
-                    int meldScore = computeMeldScore(tileHistory);
+                    int meldScore = computeMeldScore(currentPlayer.getMoveHistory(), copy);
                     System.out.println("Meld score: " + meldScore);
                     // If there are any sets with less than 3 tiles in tileSets, the initial meld is invalid
                     for (int set : tileSets.keySet()) {
@@ -155,7 +156,11 @@ public class Game {
                         currentPlayer.getMoveHistory().clear();
                         // Place all tiles back in rack
                         for (String tile : tileHistory) {
-                            currentPlayer.getRack().add(new Tile(Integer.parseInt(tile.substring(1)), TileColor.fromAbbreviation(tile.substring(0, 1))));
+                            if (tile.equals(" J ")) {
+                                currentPlayer.getRack().add(new Tile(0, null));
+                            } else {
+                                currentPlayer.getRack().add(new Tile(Integer.parseInt(tile.substring(1)), TileColor.fromAbbreviation(tile.substring(0, 1))));
+                            }
                         }
                     } else {
                         currentPlayer.setInitialMeld();
@@ -174,7 +179,11 @@ public class Game {
                         currentPlayer.getMoveHistory().clear();
                         // Place all tiles back in rack
                         for (String tile : tileHistory) {
-                            currentPlayer.getRack().add(new Tile(Integer.parseInt(tile.substring(1)), TileColor.valueOf(tile.substring(0, 1))));
+                            if (tile.equals(" J ")) {
+                                currentPlayer.getRack().add(new Tile(0, null));
+                            } else {
+                                currentPlayer.getRack().add(new Tile(Integer.parseInt(tile.substring(1)), TileColor.fromAbbreviation(tile.substring(0, 1))));
+                            }
                         }
                     }
                 }
@@ -190,44 +199,145 @@ public class Game {
     }
 
 
-    int computeMeldScore(List<String> tileHistory) {
+    int computeMeldScore(List<String> moveHistory, Table copy) {
+        // Extract the rows from moveHistory
+        List<Tile> tileHistory;
+        List<Integer> rows = new ArrayList<>();
         int meldScore = 0;
-        boolean hasJoker = tileHistory.contains("J");
 
-        List<Integer> numbers = new ArrayList<>();
-
-        // Extract numbers from tiles and ignore Joker for now
-        for (String tile : tileHistory) {
-            if (!tile.equals("J")) {
-                numbers.add(Integer.parseInt(tile.substring(1)));
+        for (String move : moveHistory) {
+            if (move.contains("PLACE")) {
+                // Get the row number when move looks like PLACE~TILE_DETAILS,TO_TILESET,TO_INDEX_IN_TILESET and turn to integers
+                // Add each row number to the rows list only once, such that there are no dulicates
+                int row = Integer.parseInt(move.split("~")[1].split(",")[1]);
+                if (!rows.contains(row)) {
+                    rows.add(row);
+                }
             }
         }
+        System.out.println("Rows: " + rows);
+        for (int row: rows) {
+            tileHistory = copy.getRow(row);
+            long jokerCount = tileHistory.stream().filter(tile -> tile.isJoker()).count();// Count jokers
+            System.out.println("Joker count: " + jokerCount);
 
-        // Sort numbers for easier processing of runs
-        Collections.sort(numbers);
+            List<Integer> numbers = new ArrayList<>();
 
-        if (hasJoker) {
-            int jokerNumber = 0;
-
-            // Check if it's a run or a group
-            if (isRun(numbers)) {
-                // Find the missing number in the run
-                jokerNumber = findMissingInRun(numbers);
-            } else if (isGroup(numbers)) {
-                // In a group, all numbers are the same
-                jokerNumber = numbers.get(0);
+            // Extract numbers from tiles and ignore Jokers for now
+            for (Tile tile : tileHistory) {
+                if (tile.isJoker()) {
+                    numbers.add(tile.getNumber());
+                }
             }
 
-            // Add jokerNumber to the score
-            meldScore += jokerNumber;
-        }
+            // If there are jokers, integrate them into the melding score
+            // If there are more than one row in rows, iterate through them and compute the score for each row
+            if (jokerCount > 0) {
+                int jokerValue = 0;
 
-        // Add all other tile numbers to the score
-        for (int number : numbers) {
-            meldScore += number;
-        }
+                // Check if it's a run or a group
+                if (isRunWithJokers(numbers, (int) jokerCount)) {
+                    System.out.println("Run with jokers");
+                    // Compute run score with jokers filling the gaps
+                    meldScore = computeRunScoreWithJokers(copy, row);
+                    System.out.println("Joker value: " + meldScore);
+                } else if (isGroupWithJokers(numbers, (int) jokerCount)) {
+                    System.out.println("Group with jokers");
+                    // In a group, all numbers are the same, so assign them the group value
+                    jokerValue = numbers.get(0) * (int) jokerCount;
+                    // Add jokerValue to the score
+                    meldScore += jokerValue;
+                    System.out.println("Joker value: " + jokerValue);
+                }
+            }
 
+            // Add all other tile numbers to the score
+            if (!isRunWithJokers(numbers, (int) jokerCount)) {
+                for (int number : numbers) {
+                    meldScore += number;
+                }
+            }
+        }
+    
         return meldScore;
+    }
+    
+    // Helper function to check if a sequence forms a valid run with jokers
+    private boolean isRunWithJokers(List<Integer> numbers, int jokerCount) {
+        if (numbers.size() == 0) {
+            return false;
+        }
+        
+        int jokersLeft = jokerCount;
+    
+        // Check if jokers can fill gaps between numbers
+        for (int i = 1; i < numbers.size(); i++) {
+            int gap = numbers.get(i) - numbers.get(i - 1) - 1;
+            jokersLeft -= gap > 0 ? gap : 0;
+        }
+    
+        // If jokers are sufficient, check if they can be added at the beginning or the end
+        return jokersLeft >= 0 || (numbers.size() > 0 && (jokersLeft + numbers.get(0) > 0 || jokersLeft + numbers.get(numbers.size() - 1) <= 13));
+    }
+    
+    // Helper function to compute the score for a run with jokers
+    private int computeRunScoreWithJokers(Table table, int row) {
+        List<Tile> tileHistory = table.getRow(row);
+        int score = 0;
+        int firstNonJokerTile = 0;
+        int jokerCount = 0;
+        String previousTile = "";
+        int indexFirstNonJoker = 0;
+
+        for (Tile tile : tileHistory) {
+            if (!tile.isJoker()) {
+                firstNonJokerTile = tile.getNumber();
+                // get index of tile in tileHistory
+                indexFirstNonJoker = tileHistory.indexOf(tile);
+                break;
+            }
+        }
+
+        // Iterate through the tile history
+        for (Tile tile : tileHistory) {
+            if (tile.isJoker() && tileHistory.indexOf(tile) < indexFirstNonJoker) {
+                score += firstNonJokerTile - (indexFirstNonJoker - tileHistory.indexOf(tile));
+            }
+            // If tile is a joker and is between two non-joker tiles add previousTileNumber + 1 to score
+            if (tile.isJoker() && tileHistory.indexOf(tile) > indexFirstNonJoker && tileHistory.indexOf(tile) < tileHistory.size() - 1 && !tileHistory.get(tileHistory.indexOf(tile) - 1).isJoker() && !tileHistory.get(tileHistory.indexOf(tile) + 1).isJoker()) {
+                previousTile = tileHistory.get(tileHistory.indexOf(tile) - 1).toString();
+                score += Integer.parseInt(previousTile.substring(1)) + 1;
+                jokerCount++;
+            }
+
+            //If there are two jokers next to each other in the middle of the run, add the number of the tile before the first joker + 2 to the score
+            if (tile.isJoker() && tileHistory.indexOf(tile) > indexFirstNonJoker && tileHistory.indexOf(tile) < tileHistory.size() - 1 && tileHistory.get(tileHistory.indexOf(tile) + 1).isJoker()) {
+                previousTile = tileHistory.get(tileHistory.indexOf(tile) - 1).toString();
+                score += 2 * Integer.parseInt(previousTile.substring(1)) + 3;
+            }
+
+            // If there is one joker at the end of the run, add the number of the tile before the first joker + 1 to the score
+            if (tile.isJoker() && tileHistory.indexOf(tile) == tileHistory.size() - 1 && !tileHistory.get(tileHistory.indexOf(tile) - 1).isJoker()) {
+                previousTile = tileHistory.get(tileHistory.indexOf(tile) - 1).toString();
+                score += Integer.parseInt(previousTile.substring(1)) + 1;
+            }
+
+            if (!tile.isJoker()) {
+                score += tile.getNumber();
+            }
+        }
+        return score;
+    }
+    
+    // Helper function to check if a sequence forms a valid group with jokers
+    private boolean isGroupWithJokers(List<Integer> numbers, int jokerCount) {
+        int firstNumber = numbers.get(0);
+        for (int number : numbers) {
+            if (number != firstNumber) {
+                return false;
+            }
+        }
+        return true;
     }
 
     // Helper method to check if numbers form a run

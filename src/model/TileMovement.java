@@ -18,7 +18,7 @@ public class TileMovement extends TileAction {
     }
 
     // Code makeMove method
-    public void makeMove(Table table) {
+    public void makeMove(Table table) throws GameException {
         Tile tileToMove = null;
         for (Tile tile: table.table.get(originSet)) {
             if (tile.toString().equals(originTile)) {

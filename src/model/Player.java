@@ -84,18 +84,11 @@ public abstract class Player {
     public void drawFromPool(List<Tile> pool, int tileAmount){
         if (pool.size() < tileAmount)
             throw new IllegalArgumentException("Not enough tiles in the pool.");
-        if (tileAmount == 1) {
+        for (int i = 0; i < tileAmount; i++) {
             int index = (int) (Math.random() * pool.size());
             Tile tileToReturn = pool.get(index);
             pool.remove(index);
             rack.add(tileToReturn);
-        } else {
-            for (int i = 0; i < tileAmount - 1; i++) {
-                int index = (int) (Math.random() * pool.size());
-                Tile tileToReturn = pool.get(index);
-                pool.remove(index);
-                rack.add(tileToReturn);
-            }
         }
     }
 
