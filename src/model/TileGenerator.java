@@ -10,7 +10,7 @@ public class TileGenerator {
             for (TileColor color : TileColor.values()) {
                 Tile tile = new Tile(i,color);
                 tileList.add(tile);
-                //tileList.add(tile);
+                tileList.add(tile);
             }
         }
         tileList.add(new Tile(0,null));

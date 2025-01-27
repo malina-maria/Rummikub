@@ -17,7 +17,7 @@ public class Rummikub {
         name = scanner.nextLine();
         Player player2 = new HumanPlayer(name);
 
-        Game game = new Game(new Player[]{player1, player2});
+        LocalGame game = new LocalGame(new Player[]{player1, player2});
         game.startGame();
     }
 }
