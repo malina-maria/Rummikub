@@ -15,6 +15,10 @@ public class Table {
         ROW_NUMBERING = new ArrayList<>();
     }
 
+    public List<List<Tile>> getBoard(){
+        return this.table;
+    }
+
     public Table makeCopy(){
         Table copy = new Table();
         for (int i = 0; i < table.size(); i++) {

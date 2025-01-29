@@ -1,5 +1,8 @@
 package model;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class Tile {
     private int number;
     private TileColor color;
@@ -36,7 +39,7 @@ public class Tile {
         if (color!=null) {
             toReturn = color.toString().substring(0,1) + number;
         } else {
-            toReturn = " J ";
+            toReturn = "J";
         }
         return toReturn;
     }

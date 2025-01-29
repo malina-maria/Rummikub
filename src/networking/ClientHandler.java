@@ -8,6 +8,7 @@ import java.io.OutputStreamWriter;
 import java.net.Socket;
 import java.net.SocketException;
 
+import model.GameException;
 import model.HumanPlayer;
 import model.Player;
 
@@ -65,11 +66,13 @@ public class ClientHandler extends Thread {
                 try {
                     String message;
                     while ((message = in.readLine()) != null) {
-                        System.out.println("ClientHandler received: " + message);
+                        //System.out.println("ClientHandler received: " + message);
                         decodeClientMsg(message);
                     }
                 }catch(SocketException e2) {
                     shutdown();
+                } catch (GameException e) {
+                    throw new RuntimeException(e);
                 }
             } catch (IOException e) {
                 shutdown();
@@ -77,23 +80,28 @@ public class ClientHandler extends Thread {
         }while(!exit);
     }
 
-    public void decodeClientMsg(String msg) {
+    public void decodeClientMsg(String msg) throws GameException {
         String[] data = Protocol.decodeArgs(msg);
         String command = data[0];
 
         switch(command) {
             case Protocol.CLIENT_HELLO:
                 server.sendHello(this);
-                server.welcomeMessage(p);
+                server.welcomeMessage();
                 break;
             case Protocol.CLIENT_READY:
                 server.setReady(p);
                 break;
+            case Protocol.CLIENT_MOVES:
+                server.move(data[1], this);
+            case Protocol.CLIENT_PLAYAGAIN:
+                server.restartRound(this, data[1]);
             case Protocol.CLIENT_DISCONNECT:
                 shutdown();
+                server.shutdown(this);
                 break;
             default:
-                server.invalid(Protocol.INVALID_UNKNOWN_COMMAND);
+                System.out.println("Invalid Command: " + command);
                 break;
         }
 

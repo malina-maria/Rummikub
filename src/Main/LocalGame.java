@@ -355,37 +355,6 @@ public class LocalGame {
         return true;
     }
 
-    // Helper method to check if numbers form a run
-    private boolean isRun(List<Integer> numbers) {
-        for (int i = 1; i < numbers.size(); i++) {
-            if (numbers.get(i) != numbers.get(i - 1) + 1) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    // Helper method to check if numbers form a group
-    private boolean isGroup(List<Integer> numbers) {
-        int firstNumber = numbers.get(0);
-        for (int number : numbers) {
-            if (number != firstNumber) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    // Helper method to find the missing number in a run
-    private int findMissingInRun(List<Integer> numbers) {
-        for (int i = 1; i < numbers.size(); i++) {
-            if (numbers.get(i) != numbers.get(i - 1) + 1) {
-                return numbers.get(i - 1) + 1;
-            }
-        }
-        // If no number is missing and there's a joker, it must be the next in sequence
-        return numbers.get(numbers.size() - 1) + 1;
-    }
 
     public void update(){
         System.out.println("Current game situation: \n" + table.toString());

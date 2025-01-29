@@ -7,8 +7,12 @@ import java.io.PrintWriter;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 import Main.Controller;
+import model.GameException;
 
 /**
  * Client class for client-server communications
@@ -75,17 +79,18 @@ public class Client extends Thread {
                 if (incoming.equals("")) {
                     System.out.println("no response...");
                 }else {
-                    System.out.println("Client received: "+incoming);
+                    //System.out.println("Client received: "+incoming);
                     decodeServerMsg(incoming);
                 }
-            } catch (IOException e1) {
+            } catch (IOException | GameException e1) {
                 System.out.println("Error: Did not manage to receive the message!");
             }
         }while(exit == false);
     }
 
-    public void decodeServerMsg(String msg) {
+    public void decodeServerMsg(String msg) throws GameException {
         String[] data = Protocol.decodeArgs(msg);
+        System.out.println("Incoming msg >> "+msg);
         String command = data[0];
         
         switch(command) {
@@ -99,46 +104,66 @@ public class Client extends Thread {
                 print("Welcome, " + data[1] + "! This game does not support any optional commands.");
                 break;
             case Protocol.SERVER_START:
-                c.startGame(); // Start the game
+                print(" - - - GAME STARTED - - - ");
+                print(" - - - BOARD - - -");
+                print(String.valueOf(new ArrayList<>(List.of("   | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 "))));
+                c.startGame();
                 break;
             case Protocol.SERVER_HAND:
-                // Handle received hand (tiles/cards, etc.)
-                // c.pushTilesToAdd(data[1].split(Protocol.LIST_SEPARATOR), );
+                c.updateHand(data[1]);
                 break;
+            case Protocol.SERVER_BOARD:
+                print(" - - - BOARD - - -");
+                print(data[1]);
+                print(data[2] + "'s moves: " + data[3]);
+                c.updateBoardStatus(data[1]);
             case Protocol.SERVER_TURN:
                 if (data[1].equals(clientName)) {
-                   // c.setPaused(false); // It's the client's turn
+                   c.playTurn();
                 }
                 break;
+            case Protocol.SERVER_ROUND:
+               System.out.println("This round has ended! The scores are: " + data[1]);
+               c.resetRound();
+            case Protocol.SERVER_ENDGAME:
+                print("The game has ended with winner " + data[1]);
             case Protocol.SERVER_DISCONNECTED:
-                print("Server has disconnected");
+                print("Server has disconnected.");
                 break;
-            case Protocol.INVALID_ILLEGAL_ACTION:
-                print("Illegal action performed");
-            case Protocol.INVALID_UNKNOWN_COMMAND:
-                print("Unknown command received");
+            case Protocol.SERVER_INVALID:
+                switch (data[1]) {
+                    case Protocol.INVALID_ILLEGAL_ACTION:
+                        print("Illegal action.");
+                        break;
+                    case Protocol.INVALID_UNKNOWN_COMMAND:
+                        print("Unknown command received");
+                        break;
+                    case Protocol.INVALID_TILE_ALREADY_EXISTS:
+                        print("Invalid action: The tile already exists.");
+                        break;
+                    case Protocol.INVALID_INSUFFICIENT_POINTS:
+                        print("Invalid action: Insufficient points to perform the action.");
+                        break;
+                    case Protocol.INVALID_TILE_NOT_OWNED:
+                        print("Invalid action: The tile is not owned by the player.");
+                        break;
+                }
                 break;
-            case Protocol.INVALID_TILE_NOT_OWNED:
-                print("Invalid action: The tile is not owned by the player.");
-                break;
-            case Protocol.INVALID_TILE_ALREADY_EXISTS:
-                print("Invalid action: The tile already exists.");
-                break;
-            case Protocol.INVALID_INSUFFICIENT_POINTS:
-                print("Invalid action: Insufficient points to perform the action.");
-                break;
-            case Protocol.ERROR_CONNECTION_REFUSED:
-                print("Error: Connection refused by the server.");
-                break;
-            case Protocol.ERROR_PLAYER_UNKNOWN:
-                print("Error: Player is unknown.");
-                break;
-            case Protocol.ERROR_INVALID_NAME:
-                print("Error: Invalid name provided.");
-                break;
-            case Protocol.ERROR_UNSUPPORTED_FLAG:
-                print("Error: Unsupported flag in request.");
-                break;
+            case Protocol.SERVER_ERROR:
+                switch(data[1]) {
+                    case Protocol.ERROR_CONNECTION_REFUSED:
+                        print("Error: Connection refused by the server.");
+                        break;
+                    case Protocol.ERROR_PLAYER_UNKNOWN:
+                        print("Error: Player is unknown.");
+                        break;
+                    case Protocol.ERROR_INVALID_NAME:
+                        print("Error: Invalid name provided.");
+                        break;
+                    case Protocol.ERROR_UNSUPPORTED_FLAG:
+                        print("Error: Unsupported flag in request.");
+                        break;
+                }
             default:
                 print("Unrecognized command: " + command); // Handle unknown commands
                 break;
@@ -147,12 +172,10 @@ public class Client extends Thread {
 
     /** send a message to a ClientHandler. */
     public void sendMessage(String msg) {
+        System.out.println("sending to server: "+msg);
         output.write(msg + "\n");
+        System.out.println("sent!");
         output.flush();
-    }
-
-    public void ready() {
-        sendMessage(Protocol.CLIENT_READY+Protocol.COMMAND_SEPARATOR+clientName);
     }
 
     /** returns the client name */
