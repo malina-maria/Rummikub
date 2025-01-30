@@ -7,10 +7,13 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.net.Socket;
 import java.net.SocketException;
+import java.util.logging.Logger;
 
 import model.GameException;
 import model.HumanPlayer;
 import model.Player;
+import static networking.Server.logger;
+
 
 /**
  * ClientHandler.
@@ -36,6 +39,7 @@ public class ClientHandler extends Thread {
         this.server = serverArg;
         this.out = new BufferedWriter(new OutputStreamWriter(sockArg.getOutputStream()));
         this.in = new BufferedReader(new InputStreamReader(sockArg.getInputStream()));
+
     }
 
     /**
@@ -70,12 +74,16 @@ public class ClientHandler extends Thread {
                         decodeClientMsg(message);
                     }
                 }catch(SocketException e2) {
-                    shutdown();
+                    logger.warning("SocketException occurred: " + e2.getMessage());
+                    //shutdown();
                 } catch (GameException e) {
+                    logger.severe("GameException occurred: " + e.getMessage());
                     throw new RuntimeException(e);
                 }
             } catch (IOException e) {
-                shutdown();
+                logger.severe("IOException occurred while reading client message: " + e.getMessage());
+                e.printStackTrace();
+                //shutdown();
             }
         }while(!exit);
     }
@@ -83,6 +91,7 @@ public class ClientHandler extends Thread {
     public void decodeClientMsg(String msg) throws GameException {
         String[] data = Protocol.decodeArgs(msg);
         String command = data[0];
+        System.out.println(command);
 
         switch(command) {
             case Protocol.CLIENT_HELLO:
@@ -94,9 +103,12 @@ public class ClientHandler extends Thread {
                 break;
             case Protocol.CLIENT_MOVES:
                 server.move(data[1], this);
+                break;
             case Protocol.CLIENT_PLAYAGAIN:
                 server.restartRound(this, data[1]);
+                break;
             case Protocol.CLIENT_DISCONNECT:
+                System.out.println("Client asked for disconnection." + msg);
                 shutdown();
                 server.shutdown(this);
                 break;
@@ -133,9 +145,10 @@ public class ClientHandler extends Thread {
      * sends a last broadcast to the Server to inform that the Client
      * is no longer participating in the chat.
      */
-    private void shutdown() {
+    void shutdown() {
         exit = true;
         server.removeHandler(this);
+        System.out.println("Client socket closed.");
         //server.removePlayer(p); this might remove the player from the game too, as the list of server is referenced in game.
         server.broadcast(Protocol.SERVER_DISCONNECTED+Protocol.COMMAND_SEPARATOR+clientName);
     }

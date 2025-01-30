@@ -14,7 +14,7 @@ public class Controller {
 
     private List<Tile> pool;
     private Table table;
-    private static final int PORT = 2728;
+    private static final int PORT = 3000;
     private Player player;
     private Client local_client;
     private boolean paused = true;
@@ -109,13 +109,13 @@ public class Controller {
             }  else if (Objects.equals(input, "DRAW") && !moves.isEmpty()){
                 System.out.println("You cannot draw a tile if you made a tile action. If you want to end your turn, simply enter ENDMOVE.");
             }else if (input.contains("P") || input.contains("M") && !moves.contains("") && !Objects.equals(input, "ENDMOVE")){
-                moves.add(input + ",");
+                moves.add(input);
             } else if (Objects.equals(input, "ENDMOVE")){
-                if (!moves.isEmpty()) {
-                    String lastMove = moves.getLast().substring(0, moves.getLast().length()-1);
-                    moves.remove(moves.getLast());
-                    moves.add(lastMove);
-                }
+//                if (!moves.isEmpty()) {
+//                    String lastMove = moves.getLast().substring(0, moves.getLast().length()-1);
+//                    moves.remove(moves.getLast());
+//                    moves.add(lastMove);
+//                }
                 break;
             }
         }
@@ -173,13 +173,6 @@ public class Controller {
         }
 
     }
-    
-    public void update(){
 
-    }
-
-    public void finishRound(){
-        roundOver = true;
-    }
 
 }

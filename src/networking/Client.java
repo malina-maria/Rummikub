@@ -117,6 +117,7 @@ public class Client extends Thread {
                 print(data[1]);
                 print(data[2] + "'s moves: " + data[3]);
                 c.updateBoardStatus(data[1]);
+                break;
             case Protocol.SERVER_TURN:
                 if (data[1].equals(clientName)) {
                    c.playTurn();
@@ -125,8 +126,10 @@ public class Client extends Thread {
             case Protocol.SERVER_ROUND:
                System.out.println("This round has ended! The scores are: " + data[1]);
                c.resetRound();
+               break;
             case Protocol.SERVER_ENDGAME:
                 print("The game has ended with winner " + data[1]);
+                break;
             case Protocol.SERVER_DISCONNECTED:
                 print("Server has disconnected.");
                 break;
@@ -164,6 +167,7 @@ public class Client extends Thread {
                         print("Error: Unsupported flag in request.");
                         break;
                 }
+                break;
             default:
                 print("Unrecognized command: " + command); // Handle unknown commands
                 break;

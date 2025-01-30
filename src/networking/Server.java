@@ -3,6 +3,7 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.*;
+import java.util.logging.Logger;
 
 import networking.Protocol;
 import Main.Game;
@@ -33,15 +34,17 @@ public class Server extends Thread {
     private boolean exit = false;
     private int skippedTurns = 0;
     private List<Player> playersToRestart = new ArrayList<>();
+    public static final Logger logger = Logger.getLogger(Server.class.getName());
     /** Constructs a new Server object */
     public Server(int portArg) {
-        this.threads = new ArrayList<ClientHandler>();
-        this.players = new ArrayList<Player>();
+        this.threads = new ArrayList<>();
+        this.players = new ArrayList<>();
         try {
             ss = new ServerSocket(portArg);
+            logger.info("Server started on port " + portArg);
         } catch (IOException e) {
             exit = true;
-            System.out.println("THE PORT 2728 WAS TAKEN!");
+            logger.severe("The port " + portArg + " is already in use: " + e.getMessage());
         }
     }
 
@@ -387,6 +390,7 @@ public class Server extends Thread {
             print("Error: Unsuccessful shutdown!");
             e.printStackTrace();
         }
+
     }
 
 }
