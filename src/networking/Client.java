@@ -111,14 +111,16 @@ public class Client extends Thread {
                 break;
             case Protocol.SERVER_HAND:
                 c.updateHand(data[1]);
+                print("HAND: " + c.getStringHand());
                 break;
             case Protocol.SERVER_BOARD:
-                print(" - - - BOARD - - -");
-                print(data[1]);
                 print(data[2] + "'s moves: " + data[3]);
-                c.updateBoardStatus(data[1]);
+                c.updateBoardStatus(data[1], data[3]);
+                System.out.println(" - - - BOARD - - -");
+                print(c.getStringBoard());
                 break;
             case Protocol.SERVER_TURN:
+                System.out.println("It's " + data[1] + "'s turn!");
                 if (data[1].equals(clientName)) {
                    c.playTurn();
                 }
@@ -129,6 +131,9 @@ public class Client extends Thread {
                break;
             case Protocol.SERVER_ENDGAME:
                 print("The game has ended with winner " + data[1]);
+                break;
+            case Protocol.SERVER_TIMEOUT:
+                print("You timed out!");
                 break;
             case Protocol.SERVER_DISCONNECTED:
                 print("Server has disconnected.");
@@ -176,6 +181,7 @@ public class Client extends Thread {
 
     /** send a message to a ClientHandler. */
     public void sendMessage(String msg) {
+        msg = msg.replace(" ", "");
         System.out.println("sending to server: "+msg);
         output.write(msg + "\n");
         System.out.println("sent!");

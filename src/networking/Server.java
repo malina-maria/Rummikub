@@ -3,8 +3,11 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.*;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
-
 import networking.Protocol;
 import Main.Game;
 import model.*;
@@ -21,8 +24,8 @@ public class Server extends Thread {
      * @param port The port number to bind the server to.
      * @return The created Server instance.
      */
-    public static Server createServer(int port) {
-        Server server = new Server(port);
+    public static Server createServer(int port, boolean useTimer) {
+        Server server = new Server(port, useTimer);
         server.start();
         return server;
     }
@@ -32,11 +35,14 @@ public class Server extends Thread {
     private List<Player> players;
     private ServerSocket ss;
     private boolean exit = false;
+    private boolean useTimer = false;
+    //private Timer turnTimer; // Reference to the timer task
     private int skippedTurns = 0;
     private List<Player> playersToRestart = new ArrayList<>();
     public static final Logger logger = Logger.getLogger(Server.class.getName());
     /** Constructs a new Server object */
-    public Server(int portArg) {
+    public Server(int portArg, boolean useTimer) {
+        this.useTimer = useTimer;
         this.threads = new ArrayList<>();
         this.players = new ArrayList<>();
         try {
@@ -48,6 +54,125 @@ public class Server extends Thread {
         }
     }
 
+    private ClientHandler findClientHandler(){
+        for (ClientHandler thread:threads) {
+            if (thread.getPlayer() == currentgame.getCurrentPlayer()) {
+                return thread;
+            }
+        }
+        return null;
+    }
+
+//    private void startTurnTimer2(ClientHandler ch) {
+//        if (!useTimer) return; // Skip the timer if it's disabled.
+//
+//        Timer timer = new Timer();
+//        timer.schedule(new TimerTask() {
+//            @Override
+//            public void run() {
+//                synchronized (Server.this) {
+//                    if (ch.getPlayer().equals(currentgame.getCurrentPlayer())) {
+//                        broadcast("Player " + ch.getPlayer().getName() + " took too long! Moving to the next player...");
+//                        ch.getPlayer().drawFromPool(currentgame.getPool(), 3);
+//                        sendHand(ch);
+//                        ch.sendMessage(Protocol.SERVER_TIMEOUT + ch.getPlayer().getName());
+//                        currentgame.nextPlayer();
+//                        ClientHandler ch_new = findClientHandler();
+//                        sendTurn();
+//                        sendBoard();
+//                        sendHand(ch_new);// Notify all players about the new turn.
+//                        startTurnTimer(ch_new); // Start the timer for the next player.
+//                    }
+//                }
+//            }
+//        }, 30000); // 30 seconds timer
+//    }
+
+    // TODO: Handle case where ch_new = null
+    private synchronized void startNextPlayer() {
+        if (useTimer && turnTickTask != null) {
+            turnTickTask.cancel(false);
+        }
+        sendBoard();
+        currentgame.nextPlayer();
+        ClientHandler ch_new = findClientHandler();
+        sendTurn();
+        sendHand(ch_new);
+        ch_new.sendMessage(Protocol.SERVER_TIMEOUT + Protocol.COMMAND_SEPARATOR + ch_new.getPlayer().getName());
+        if (useTimer) {
+            startTurnTimer(ch_new);
+        }
+    }
+
+    private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+    private ScheduledFuture<?> turnTickTask;
+    private long startTime;  // Timestamp when the turn started
+    private static final int TURN_DURATION = 30;  // 30 seconds
+
+    private void startTurnTimer(ClientHandler ch) {
+        if (useTimer) {
+            if (turnTickTask != null && !turnTickTask.isCancelled()) {
+                turnTickTask.cancel(true); // Force cancel any existing timer
+            }
+
+            startTime = System.currentTimeMillis();
+            System.out.println("starting timer!");
+
+            turnTickTask = scheduler.scheduleAtFixedRate(() -> {
+                if (!ch.getPlayer().equals(currentgame.getCurrentPlayer())) {
+                    turnTickTask.cancel(false); // Cancel if the turn has transitioned
+                    return; // Exit early
+                }
+                long elapsedTime = (System.currentTimeMillis() - startTime) / 1000;
+                long remainingTime = TURN_DURATION - elapsedTime;
+
+                if (remainingTime <= 0) {
+                    System.out.println("timer out!");
+                    System.out.println("Player " + ch.getPlayer().getName() + " took too long! Moving to the next player...");
+                    ch.getPlayer().drawFromPool(currentgame.getPool(), 3);
+                    sendHand(ch);
+                    ch.sendMessage(Protocol.SERVER_TIMEOUT + Protocol.COMMAND_SEPARATOR + ch.getPlayer().getName());
+                    startNextPlayer(); // Transition to the next player
+                }
+            }, 0, 1, TimeUnit.SECONDS);
+        }
+    }
+
+
+//    private void startTurnTimer(ClientHandler ch) {
+//        if (useTimer) {                  // Skip timer if it's disabled.
+//            startTime = System.currentTimeMillis(); // Capture turn start time
+//            System.out.println("starting timer!");
+//            // Schedule a task to check the time every second
+//            turnTickTask = scheduler.scheduleAtFixedRate(() -> {
+//                if (!ch.getPlayer().equals(currentgame.getCurrentPlayer())) {
+//                    turnTickTask.cancel(false); // cancel task if player completed turn
+//                }
+//                long elapsedTime = (System.currentTimeMillis() - startTime) / 1000;
+//                long remainingTime = TURN_DURATION - elapsedTime;
+//
+//                // If time runs out, perform the timeout action
+//                if (remainingTime <= 0) {
+//                    System.out.println("timer out!");
+//                   // synchronized (Server.this) {
+//                        System.out.println("Player " + ch.getPlayer().getName() + " took too long! Moving to the next player...");
+//                        ch.getPlayer().drawFromPool(currentgame.getPool(), 3);
+//                        sendHand(ch);
+//                        ch.sendMessage(Protocol.SERVER_TIMEOUT + Protocol.COMMAND_SEPARATOR + ch.getPlayer().getName());
+//                        startNextPlayer();
+//                        System.out.println("New timer has started but old timer was not canceled.");
+//                    //}
+//                }
+//            }, 0, 1, TimeUnit.SECONDS);  // Execute every 1 second
+//        }
+//    }
+
+//    private void cancelTurnTimer() {
+//        if (turnTimer != null) {
+//            turnTimer.cancel();
+//            turnTimer = null;
+//        }
+//    }
 
     /**
      * Sends a hello message to a specific player.
@@ -119,6 +244,7 @@ public class Server extends Thread {
     }
 
     public void sendTurn(){
+        System.out.println("Sending turn to: " + currentgame.getCurrentPlayer());
         broadcast(Protocol.SERVER_TURN + Protocol.COMMAND_SEPARATOR + currentgame.getCurrentPlayer().getName());
     }
 
@@ -133,8 +259,13 @@ public class Server extends Thread {
     public String boardToString(){
         StringBuilder board = new StringBuilder();
         if (!currentgame.getTable().getBoard().isEmpty()) {
-            for (List<Tile> row : currentgame.getTable().getBoard()) {
-                board.append("[").append(row).append("]").append(",");
+            for (int i = 0; i < currentgame.getTable().getBoard().size(); i++) {
+                List<Tile> row = currentgame.getTable().getRow(i);
+                if (i != currentgame.getTable().getBoard().size() - 1) {
+                    board.append(row).append(",");
+                } else if (i == currentgame.getTable().getBoard().size() - 1) {
+                    board.append(row);
+                }
             }
             // Remove the last , from board
             if (!board.isEmpty() && board.charAt(board.length() - 1) == ',') {
@@ -177,6 +308,7 @@ public class Server extends Thread {
                 sendHand(ch);
             }
             sendTurn();
+            startTurnTimer(findClientHandler()); // Start the timer for the first player
         }
     }
 
@@ -225,40 +357,47 @@ public class Server extends Thread {
     }
 
     public void move(String stringMoves, ClientHandler ch) throws GameException {
+        //cancelTurnTimer(); // Cancel timer for the current player's turn
         List<String> tileHistory = new ArrayList<>();
         Map<Integer, List<String>> tileSets = new HashMap<>();
+        String[] moves;
         int invalidActions = 0;
         Table copy = currentgame.getTable().makeCopy();
-
-        String[] moves = stringMoves.substring(1, stringMoves.length() - 1).split("],\\[");
-
-        //  -- -- DEBUG INFO -- --
-//        System.out.println("stringMoves: "+stringMoves);
-//        System.out.println(moves.length);
-//        if (moves.length>0) {
-//            System.out.println("moves[0]: "+moves[0]);
-//            System.out.println("moves[0] length: "+moves[0].length());
-//        } // Bad!! >>> when DRAW sent, moves.length == 1
-//        System.out.println(currentgame.getPool().isEmpty()); // Good!
+        stringMoves = stringMoves.substring(1,stringMoves.length()-1);
+        System.out.println("Length of input movesString:" + stringMoves.length());
+        System.out.println("Moves received by server: " + stringMoves);
+        if (!stringMoves.isEmpty()) {
+            moves = stringMoves.split("],\\[");
+        } else {
+            List<String> drawMove = new ArrayList<>();
+            drawMove.add(Protocol.ACTION_DRAW);
+            moves = drawMove.toArray(new String[0]);
+        }
 
         if (moves.length==1 && moves[0].equalsIgnoreCase(Protocol.ACTION_DRAW) && !currentgame.getPool().isEmpty()) {
             System.out.println("drawing from pool");
             currentgame.getCurrentPlayer().drawFromPool(currentgame.getPool(), 1);
         } else if (moves.length == 0 && currentgame.getPool().isEmpty()){ // TODO: Test, it might not work
             ch.getPlayer().updateSkippedTurn();
-        } else if (moves.length > 0 && !Objects.equals(moves[0], "")){
+        } else if (moves.length > 0 && !Objects.equals(moves[0], Protocol.ACTION_DRAW)){
+            System.out.println("Entering Move/Place processing.");
             for (String input : moves) {
                 String[] commands = input.split(Protocol.LIST_SEPARATOR);
-                if (commands.length == 5 && commands[1].equalsIgnoreCase(Protocol.ACTION_MOVE) && currentgame.getCurrentPlayer().madeInitialMeld()) {
-                    TileMovement tileMovement = new TileMovement(Integer.parseInt(commands[0]), commands[1], Integer.parseInt(commands[2]), Integer.parseInt(commands[3]));
+                System.out.println(commands);
+                if (commands.length == 5 && commands[0].equalsIgnoreCase(Protocol.ACTION_MOVE) && currentgame.getCurrentPlayer().madeInitialMeld()) {
+                    TileMovement tileMovement = new TileMovement(Integer.parseInt(commands[1]), commands[2], Integer.parseInt(commands[3]), Integer.parseInt(commands[4]));
                     tileMovement.makeMove(copy);
-                } else if (commands.length == 4 && commands[1].equalsIgnoreCase(Protocol.ACTION_PLACE)) {
-                    String tileToPlace = commands[0];
+                } else if (commands.length == 4 && commands[0].equalsIgnoreCase(Protocol.ACTION_PLACE)) {
+                    String tileToPlace = commands[1];
                     tileHistory.add(tileToPlace);
-                    int toTileSet = Integer.parseInt(commands[1]);
-                    int toIndexInTileSet = Integer.parseInt(commands[2]);
+                    int toTileSet = Integer.parseInt(commands[2]);
+                    int toIndexInTileSet = Integer.parseInt(commands[3]);
                     TilePlacement tilePlacement = new TilePlacement(tileToPlace, toTileSet, toIndexInTileSet);
-                    tilePlacement.makeMove(copy, currentgame.getCurrentPlayer().getRack());
+                    try {
+                        tilePlacement.makeMove(copy, currentgame.getCurrentPlayer().getRack());
+                    } catch (GameException e) {
+                       sendInvalid(ch,Protocol.INVALID_TILE_NOT_OWNED);
+                    }
                     if (!currentgame.getCurrentPlayer().madeInitialMeld()) {
                         //Store all the tiles placed in the table, together with the associated set number
                         if (tileSets.containsKey(toTileSet)) {
@@ -270,7 +409,7 @@ public class Server extends Thread {
                         }
                     }
                 } else {
-                    sendInvalid(ch, Protocol.INVALID_ILLEGAL_ACTION);
+                    sendInvalid(ch, Protocol.INVALID_UNKNOWN_COMMAND);
                     invalidActions++;
                 }
 
@@ -279,7 +418,10 @@ public class Server extends Thread {
             }
 
             if (!currentgame.getCurrentPlayer().madeInitialMeld() && invalidActions == 0) {
+                print("Moves History: " + currentgame.getCurrentPlayer().getMoveHistory());
+                print("Copy Board: " + copy);
                 int meldScore = currentgame.computeMeldScore(currentgame.getCurrentPlayer().getMoveHistory(), copy);
+                print("Meld score: " + meldScore);
                 // If there are any sets with less than 3 tiles in tileSets, the initial meld is invalid
                 for (int set : tileSets.keySet()) {
                     if (tileSets.get(set).size() < 3) {
@@ -326,15 +468,10 @@ public class Server extends Thread {
                 }
             }
         }
-        sendBoard();
         currentgame.getCurrentPlayer().getMoveHistory().clear();
         sendHand(ch); // send hand to current player
-        currentgame.nextPlayer();
-        for (ClientHandler thread:threads) {
-            if (thread.getPlayer() == currentgame.getCurrentPlayer())
-                sendHand(thread);   // send hand to next player
-        }
-        sendTurn();
+        startNextPlayer();
+
         for (Player player:players){
             if (player.getSkippedTurn() == 1){
                 skippedTurns++;
@@ -345,7 +482,6 @@ public class Server extends Thread {
             System.out.println("The round is over.");
             broadcast(Protocol.SERVER_ROUND + Protocol.COMMAND_SEPARATOR + returnScores());
         }
-        System.out.println("Server closed: "+ss.isClosed());
     }
 
     public void restartRound(ClientHandler ch, String response){

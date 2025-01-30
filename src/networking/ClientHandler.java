@@ -89,9 +89,10 @@ public class ClientHandler extends Thread {
     }
 
     public void decodeClientMsg(String msg) throws GameException {
-        String[] data = Protocol.decodeArgs(msg);
+        String[] data = msg.split(Protocol.COMMAND_SEPARATOR);
         String command = data[0];
         System.out.println(command);
+        System.out.println("Second entry of message: " + data[1]);
 
         switch(command) {
             case Protocol.CLIENT_HELLO:
@@ -130,6 +131,7 @@ public class ClientHandler extends Thread {
      * and shutdown() is called.
      */
     public void sendMessage(String msg) {
+        msg = msg.replace(" ", "");
         try {
             out.write(msg);
             out.newLine();

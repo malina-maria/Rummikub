@@ -144,7 +144,7 @@ public class Game {
             if (move.contains("P")) {
                 // Get the row number when move looks like PLACE~TILE_DETAILS,TO_TILESET,TO_INDEX_IN_TILESET and turn to integers
                 // Add each row number to the rows list only once, such that there are no dulicates
-                int row = Integer.parseInt(move.split("~")[1].split(",")[1]);
+                int row = Integer.parseInt(move.split(",")[2]);
                 if (!rows.contains(row)) {
                     rows.add(row);
                 }
@@ -185,7 +185,7 @@ public class Game {
                 }
 
                 // Add all other tile numbers to the score
-                if (!isRunWithJokers(numbers, (int) jokerCount)) {
+                if (!isRunWithJokers(numbers, (int) jokerCount) || jokerCount == 0) {
                     for (int number : numbers) {
                         meldScore += number;
                     }

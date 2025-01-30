@@ -45,16 +45,21 @@ public class Controller {
             System.out.println("Do you want to create or join a game?");
             String choice = scanner.nextLine().toLowerCase();
             if (choice.equals("create")){
-                createGame(name);
+                System.out.println("Do you want to use a timer?");
+                String answerTimer = scanner.nextLine();
+                boolean useTimer = answerTimer.equalsIgnoreCase("Yes");
+                createGame(name, useTimer);
             } else if (choice.equals("join")){
                 joinGame(name);
             }
+
 
             System.out.println("Enter READY when you are ready to start the game!");
             String playerReady = scanner.nextLine();
             if (playerReady.equals("READY")){
                 notifyReady();
             }
+
     }
 
     /**
@@ -62,8 +67,8 @@ public class Controller {
      *
      * @param name The name of the player creating the game.
      */
-    public void createGame(String name) {
-        server = Server.createServer(PORT);
+    public void createGame(String name, boolean useTimer) {
+        server = Server.createServer(PORT, useTimer);
         joinGame(name);
     }
 
@@ -96,30 +101,43 @@ public class Controller {
      * Continuously takes input from the player until "ENDMOVE" is received.
      */
     public void playTurn() {
-        System.out.println(" - - - BOARD - - -");
-        System.out.println(this.table.toString());
-        System.out.println("HAND: " + player.getRack());
-        System.out.println("It's your turn! Enter your moves (type ENDMOVE to end your turn)");
+        System.out.println("Enter your moves (type ENDMOVE to end your turn)");
         List<String> moves = new ArrayList<>();
+        StringBuilder formattedMoves = null;
         while (true) {
             String input = scanner.nextLine();
             if (Objects.equals(input, "DRAW") && moves.isEmpty()) {
                 System.out.println("draw typed!");
+                moves.add("");
+                formattedMoves = new StringBuilder("[]");
                 break;
-            }  else if (Objects.equals(input, "DRAW") && !moves.isEmpty()){
+            } else if (Objects.equals(input, "DRAW") && !moves.isEmpty()) {
                 System.out.println("You cannot draw a tile if you made a tile action. If you want to end your turn, simply enter ENDMOVE.");
-            }else if (input.contains("P") || input.contains("M") && !moves.contains("") && !Objects.equals(input, "ENDMOVE")){
+            } else if (input.contains("P") || input.contains("M") && !moves.contains("") && !Objects.equals(input, "ENDMOVE")) {
                 moves.add(input);
-            } else if (Objects.equals(input, "ENDMOVE")){
-//                if (!moves.isEmpty()) {
-//                    String lastMove = moves.getLast().substring(0, moves.getLast().length()-1);
-//                    moves.remove(moves.getLast());
-//                    moves.add(lastMove);
-//                }
+            } else if (Objects.equals(input, "ENDMOVE")) {
+                if (!moves.isEmpty()) {
+                    System.out.println("Moves is not empty.");
+                    // Add brackets and commas
+                    formattedMoves = new StringBuilder("[");
+                    for (int i = 0; i < moves.size(); i++) {
+                        formattedMoves.append(moves.get(i)); // Extracts the inner element
+                        if (i < moves.size() - 1) {
+                            formattedMoves.append("],[");
+                        }
+                    }
+                    formattedMoves.append("]");
+                }
+                break;
+            } else if (Objects.equals(input, "Disconnect")) {
+                local_client.sendMessage(Protocol.CLIENT_DISCONNECT + Protocol.COMMAND_SEPARATOR + player.getName());
                 break;
             }
         }
-        local_client.sendMessage(Protocol.CLIENT_MOVES + Protocol.COMMAND_SEPARATOR + moves);
+        System.out.println(formattedMoves);
+        if (formattedMoves != null) {
+            local_client.sendMessage(Protocol.CLIENT_MOVES + Protocol.COMMAND_SEPARATOR + formattedMoves.toString());
+        }
     }
 
     public Tile getTileFromString(String str){
@@ -134,7 +152,7 @@ public class Controller {
     // updates local hand based on the info sent by server
     public void updateHand(String data){
         List<Tile> tileList = new ArrayList<>(); // The tiles server sent
-        String[] tileStrings = data.substring(1, data.length() - 1).split(", ");
+        String[] tileStrings = data.substring(1, data.length() - 1).split(",");
         for (String str : tileStrings) { // Print each set
             tileList.add(getTileFromString(str));
         }
@@ -142,23 +160,42 @@ public class Controller {
         player.getRack().addAll(tileList);
     }
 
-    public void updateBoardStatus(String tableConfiguration){
+    public String getStringBoard(){
+        return this.table.toString();
+    }
+
+    public String getStringHand(){
+        return "HAND: " + player.getRack();
+    }
+
+    public void updateBoardStatus(String tableConfiguration, String movesMade){
         // tableConfiguration comes in format [R1,R2,R3,R4],[b1,B1,R1],[Y10,Y11,Y12]. split it such
         // that I can extract each set by itself (example: set1 - R1,R2,R3,R4)
         // Remove the outer brackets and split by "],"
-        if (!tableConfiguration.equals("[]")) {
-            String[] sets = tableConfiguration.substring(1, tableConfiguration.length() - 1).split("],\\[");
-
-            for (String set : sets) { // Print each set
-                String[] tileString = set.split(",");
-                List<Tile> setToAdd = new ArrayList<>();
-                for (String str : tileString) {
-                    setToAdd.add(getTileFromString(str));
+        if (!movesMade.isEmpty()) {
+            String[] sets;
+            if (!tableConfiguration.equals("[]")) {
+                if (tableConfiguration.contains(",")) {
+                    sets = tableConfiguration.substring(1, tableConfiguration.length() - 1).split("],\\[");
+                } else {
+                    List<String> setList = new ArrayList<>();
+                    setList.add(tableConfiguration.substring(1, tableConfiguration.length() - 1));
+                    sets = setList.toArray(new String[0]);
                 }
-                this.table.addRow(setToAdd);
+                System.out.println("Sets: " + sets);
+                this.table.getBoard().clear();
+                for (String set : sets) { // Print each set
+                    String[] tileString = set.split(",");
+                    List<Tile> setToAdd = new ArrayList<>();
+                    for (String str : tileString) {
+                        System.out.println("Tile string: " + str);
+                        setToAdd.add(getTileFromString(str));
+                    }
+                    this.table.addRow(setToAdd);
+                }
+            } else {
+                this.table.getBoard().clear();
             }
-        } else {
-            this.table.getBoard().clear();
         }
     }
 
