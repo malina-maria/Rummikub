@@ -87,9 +87,9 @@ public class Server extends Thread {
         sendBoard();
         currentgame.nextPlayer();
         ClientHandler ch_new = findClientHandler();
-        sendTurn();
         if (ch_new!=null)
             sendHand(ch_new);
+        sendTurn();
         if (useTimer) {
             startTurnTimer(ch_new);
         }
@@ -359,7 +359,7 @@ public class Server extends Thread {
             // Process each move independently, validating and applying it step by step to the copied state.
             for (String input : moves) {
                 String[] commands = input.split(Protocol.LIST_SEPARATOR);
-                System.out.println(commands); // Debug log to show commands being processed.
+                System.out.println(Arrays.toString(commands)); // Debug log to show commands being processed.
                 if (commands.length == 5 && commands[0].equalsIgnoreCase(Protocol.ACTION_MOVE) && currentgame.getCurrentPlayer().madeInitialMeld()) {
                     // Parse "move" commands and attempt to apply the move to the copied game table.
                     TileMovement tileMovement = new TileMovement(Integer.parseInt(commands[1]), commands[2], Integer.parseInt(commands[3]), Integer.parseInt(commands[4]));

@@ -31,6 +31,8 @@ public class TilePlacement extends TileAction{
         boolean onRack = false;
         Tile tileToPlace = null;
         for (Tile tile : rack) {
+            String tileString = tile.toString();
+            tileString = tileString.replace(" ", "");
             if (tile.toString().equals(rackTile)){
                 onRack = true;
                 tileToPlace = tile;

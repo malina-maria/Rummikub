@@ -37,7 +37,7 @@ public class Controller {
                 name = scanner.nextLine();
             }
 
-            if (!name.equalsIgnoreCase("smart")) {
+            if (!name.contains("smart")) {
                 System.out.println("Do you want to create or join a game?");
                 String choice = scanner.nextLine().toLowerCase();
                 if (choice.equals("create")) {
