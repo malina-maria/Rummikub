@@ -124,7 +124,7 @@ public class Client extends Thread {
                 break;
             case Protocol.SERVER_HAND:
                 c.updateHand(data[1]);
-                print("HAND: " + c.getStringHand());
+                print(c.getStringHand());
                 break;
             case Protocol.SERVER_BOARD:
                 print(data[2] + "'s moves: " + data[3]);

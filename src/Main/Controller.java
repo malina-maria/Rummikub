@@ -27,7 +27,6 @@ public class Controller {
      */
     public Controller() {
             this.scanner = new Scanner(System.in);
-
             // LOAD LOCAL BOARD TO DISPLAY
             this.table = new Table();
 

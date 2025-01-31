@@ -88,7 +88,8 @@ public class Server extends Thread {
         currentgame.nextPlayer();
         ClientHandler ch_new = findClientHandler();
         sendTurn();
-        sendHand(ch_new);
+        if (ch_new!=null)
+            sendHand(ch_new);
         if (useTimer) {
             startTurnTimer(ch_new);
         }
@@ -376,7 +377,7 @@ public class Server extends Thread {
                     int toIndexInTileSet = Integer.parseInt(commands[3]);
                     // Attempt to place the specified tile into the new tile set at the specified position.
                     TilePlacement tilePlacement = new TilePlacement(tileToPlace, toTileSet, toIndexInTileSet);
-                    
+                    print("Get rack of player: " + currentgame.getCurrentPlayer().getRack());
                     try {
                         // Simulate the tile placement on the copied game table.
                         tilePlacement.makeMove(copy, currentgame.getCurrentPlayer().getRack());
@@ -404,12 +405,12 @@ public class Server extends Thread {
                 if (input.contains(Protocol.ACTION_MOVE) || input.contains(Protocol.ACTION_PLACE))
                     currentgame.getCurrentPlayer().addToMoveHistory(input);
             }
-            //print("Moves History: " + currentgame.getCurrentPlayer().getMoveHistory());
+            print("Moves History: " + currentgame.getCurrentPlayer().getMoveHistory());
             if (!currentgame.getCurrentPlayer().madeInitialMeld() && invalidActions == 0) {
-                //print("Moves History: " + currentgame.getCurrentPlayer().getMoveHistory());
-                //print("Copy Board: " + copy);
+                print("Moves History: " + currentgame.getCurrentPlayer().getMoveHistory());
+                print("Copy Board: " + copy);
                 int meldScore = currentgame.computeMeldScore(currentgame.getCurrentPlayer().getMoveHistory(), copy);
-                //print("Meld score: " + meldScore);
+                print("Meld score: " + meldScore);
                 // If there are any sets with less than 3 tiles in tileSets, the initial meld is invalid
                 for (int set : tileSets.keySet()) {
                     if (tileSets.get(set).size() < 3) {

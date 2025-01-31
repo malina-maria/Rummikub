@@ -42,7 +42,6 @@ public class SmartComputerPlayer extends Player {
             if (!initialMeld.isEmpty() && calculateScore(initialMeld) >= 30) {
                 for (Sets meld : initialMeld) {
                     table.addSet(meld);
-                    removeFromRack(meld.getTiles());
                     addMovesToHistory(meld.getTiles(), table.getBoard().size()-1); // Track AI's moves
                     System.out.println(getName() + " played initial meld: " + meld.getTiles());
                 }
@@ -59,7 +58,6 @@ public class SmartComputerPlayer extends Player {
         if (!validMoves.isEmpty()) {
             for (Sets move : validMoves) {
                 table.addSet(move);
-                removeFromRack(move.getTiles());
                 addMovesToHistory(move.getTiles(), table.getBoard().size()-1); // Track AI's moves
                 System.out.println(getName() + " played: " + move.getTiles());
             }
@@ -180,6 +178,7 @@ public class SmartComputerPlayer extends Player {
      * 
      * @return a list of groups formed from the rack
      */
+    
     private List<Sets> findGroups() {
         List<Sets> groups = new ArrayList<>();
         Map<Integer, List<Tile>> numberToTiles = new HashMap<>();
