@@ -8,6 +8,10 @@ public class HumanPlayer extends Player{
         super(name);
     }
 
+    @Override
+    public void setTable(Table table) {
+
+    }
     // adds set to the table
     // updates the rack
 

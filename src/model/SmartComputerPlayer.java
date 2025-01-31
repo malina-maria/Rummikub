@@ -1,34 +1,40 @@
 package model;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 public class SmartComputerPlayer extends Player {
-    private final Table table;
+    private Table table;
     private final List<Tile> rack;
+    private final List<String> moveHistory;
 
-    public SmartComputerPlayer(String name, Table table) {
+    public SmartComputerPlayer(String name) {
         super(name);
-        this.table = table;
-        this.rack = super.getRack(); // Access rack from the abstract Player class
+        this.rack = super.getRack();// Access rack from the abstract Player class
+        this.moveHistory = new ArrayList<>();
     }
 
+    public void setTable(Table table){
+        this.table = table;
+    }
+
+
     public boolean playTurn(List<Tile> pool) {
+        moveHistory.clear(); // Clear AI's moves for this turn
+
         if (!madeInitialMeld()) {
-            // Attempt to play initial meld
             List<Sets> initialMeld = findInitialMeld();
             if (!initialMeld.isEmpty() && calculateScore(initialMeld) >= 30) {
                 for (Sets meld : initialMeld) {
                     table.addSet(meld);
                     removeFromRack(meld.getTiles());
+                    addMovesToHistory(meld.getTiles(), table.getBoard().size()-1); // Track AI's moves
                     System.out.println(getName() + " played initial meld: " + meld.getTiles());
                 }
-                setInitialMeld(); // Mark initial meld as played
-                return true; // Turn successful
+                setInitialMeld();
+                return true;
             } else {
-                // Draw a tile if unable to play initial meld
-                drawFromPool(pool, 1);
-                return false; // No move this turn
+                //drawFromPool(pool, 1);
+                return false; // No move possible
             }
         }
 
@@ -38,14 +44,41 @@ public class SmartComputerPlayer extends Player {
             for (Sets move : validMoves) {
                 table.addSet(move);
                 removeFromRack(move.getTiles());
+                addMovesToHistory(move.getTiles(), table.getBoard().size()-1); // Track AI's moves
                 System.out.println(getName() + " played: " + move.getTiles());
             }
-            return true; // Turn successful
+            return true;
         } else {
-            // Draw a tile if no valid moves exist
-            drawFromPool(pool, 1);
-            return false; // No move this turn
+            //drawFromPool(pool, 1);
+            return false;
         }
+    }
+
+    // Converts AI's moves into the exact required format
+    private void addMovesToHistory(List<Tile> tiles, int setIndex) {
+        for (int i = 0; i < tiles.size(); i++) {
+            Tile tile = tiles.get(i);
+            String move = "P," + tile.toString() + "," + setIndex + "," + i;
+            moveHistory.add(move);
+
+        }
+    }
+
+    public List<String> getMoveHistory() {
+        return moveHistory;
+    }
+
+    @Override
+    public void addToMoveHistory(String move){
+        moveHistory.add(move);
+    }
+
+    public List<Tile> getRack(){
+        return this.rack;
+    }
+
+    public void resetRack(){
+        this.rack.clear();
     }
 
     private List<Sets> findInitialMeld() {
@@ -82,17 +115,114 @@ public class SmartComputerPlayer extends Player {
 
     private List<Sets> findGroups() {
         List<Sets> groups = new ArrayList<>();
-        // Logic for finding valid groups from rack (3-4 tiles of the same number, different colors)
-        // Implementation omitted for brevity
+        Map<Integer, List<Tile>> numberToTiles = new HashMap<>();
+        List<Tile> availableTiles = new ArrayList<>(rack); // Create a mutable copy of rack
+        List<Tile> jokers = new ArrayList<>();
+
+        // Group tiles by number and separate jokers
+        Iterator<Tile> tileIterator = availableTiles.iterator();
+        while (tileIterator.hasNext()) {
+            Tile tile = tileIterator.next();
+            if (tile.isJoker()) {
+                jokers.add(tile);
+                tileIterator.remove(); // Remove from availableTiles
+            } else {
+                numberToTiles.computeIfAbsent(tile.getNumber(), k -> new ArrayList<>()).add(tile);
+            }
+        }
+
+        // Try forming groups (same number, different colors)
+        for (Map.Entry<Integer, List<Tile>> entry : numberToTiles.entrySet()) {
+            List<Tile> sameNumberTiles = entry.getValue();
+            Set<TileColor> usedColors = new HashSet<>();
+            List<Tile> group = new ArrayList<>();
+            Iterator<Tile> it = sameNumberTiles.iterator();
+
+            while (it.hasNext()) {
+                Tile tile = it.next();
+                if (!usedColors.contains(tile.getColor())) {
+                    group.add(tile);
+                    usedColors.add(tile.getColor());
+                    it.remove(); // Remove tile so it isn't used twice
+                }
+            }
+
+            // Use Jokers if the group is missing tiles
+            while (group.size() < 3 && !jokers.isEmpty()) {
+                group.add(jokers.remove(0)); // Remove Joker after use
+            }
+
+            // Valid groups have at least 3 tiles
+            if (group.size() >= 3) {
+                groups.add(new Group(new ArrayList<>(group))); // Add valid group
+            }
+        }
+
         return groups;
     }
 
+
+
     private List<Sets> findRuns() {
         List<Sets> runs = new ArrayList<>();
-        // Logic for finding valid runs from rack (3+ consecutive tiles of the same color)
-        // Implementation omitted for brevity
+        Map<TileColor, List<Tile>> colorToTiles = new HashMap<>();
+        List<Tile> availableTiles = new ArrayList<>(rack); // Mutable copy of rack
+        List<Tile> jokers = new ArrayList<>();
+
+        // Group tiles by color and separate jokers
+        Iterator<Tile> tileIterator = availableTiles.iterator();
+        while (tileIterator.hasNext()) {
+            Tile tile = tileIterator.next();
+            if (tile.isJoker()) {
+                jokers.add(tile);
+                tileIterator.remove(); // Remove from availableTiles
+            } else {
+                colorToTiles.computeIfAbsent(tile.getColor(), k -> new ArrayList<>()).add(tile);
+            }
+        }
+
+        // Try forming runs (consecutive numbers, same color)
+        for (Map.Entry<TileColor, List<Tile>> entry : colorToTiles.entrySet()) {
+            List<Tile> sameColorTiles = entry.getValue();
+            sameColorTiles.sort(Comparator.comparingInt(Tile::getNumber)); // Sort by number
+            List<Tile> run = new ArrayList<>();
+            Iterator<Tile> it = sameColorTiles.iterator();
+            int previousNumber = -1;
+
+            while (it.hasNext()) {
+                Tile tile = it.next();
+                if (run.isEmpty() || tile.getNumber() == previousNumber + 1) {
+                    run.add(tile);
+                    it.remove(); // Remove tile from available list
+                } else if (tile.getNumber() == previousNumber + 2 && !jokers.isEmpty()) {
+                    Tile joker = jokers.remove(0);
+                    run.add(joker); // Add Joker to fill the gap
+                    run.add(tile);
+                    it.remove(); // Remove tile after use
+                } else {
+                    // If the run is valid, save it and start a new run
+                    if (run.size() >= 3) {
+                        runs.add(new Run(new ArrayList<>(run)));
+                    }
+                    run.clear();
+                    run.add(tile);
+                    it.remove(); // Remove tile after use
+                }
+                previousNumber = tile.getNumber();
+            }
+
+            // Add the final run if valid
+            if (run.size() >= 3) {
+                runs.add(new Run(new ArrayList<>(run)));
+            }
+        }
+
         return runs;
     }
+
+
+
+
 
     private void removeFromRack(List<Tile> tiles) {
         rack.removeAll(tiles);

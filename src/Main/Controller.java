@@ -4,7 +4,6 @@ import java.util.*;
 
 import model.*;
 import networking.Client;
-import networking.ClientHandler;
 import networking.Protocol;
 import networking.Server;
 
@@ -30,6 +29,7 @@ public class Controller {
     private String coordinates;
     private  Scanner scanner;
     private boolean roundOver = false;
+    private boolean isInvalidName = false;
     /**
      * Initializes the game controller by setting up the table and generating the tile pool.
      */
@@ -41,25 +41,38 @@ public class Controller {
 
             System.out.println("Please enter your name!");
             String name = scanner.nextLine();
-
-            System.out.println("Do you want to create or join a game?");
-            String choice = scanner.nextLine().toLowerCase();
-            if (choice.equals("create")){
-                System.out.println("Do you want to use a timer?");
-                String answerTimer = scanner.nextLine();
-                boolean useTimer = answerTimer.equalsIgnoreCase("Yes");
-                createGame(name, useTimer);
-            } else if (choice.equals("join")){
-                joinGame(name);
+            while (isInvalidName) {
+                System.out.println("Please enter your name!");
+                name = scanner.nextLine();
             }
 
+            if (!name.equalsIgnoreCase("smart")) {
+                System.out.println("Do you want to create or join a game?");
+                String choice = scanner.nextLine().toLowerCase();
+                if (choice.equals("create")) {
+                    System.out.println("Do you want to use a timer?");
+                    String answerTimer = scanner.nextLine();
+                    boolean useTimer = answerTimer.equalsIgnoreCase("Yes");
+                    createGame(name, useTimer);
+                } else if (choice.equals("join")) {
+                    joinGame(name);
+                }
 
-            System.out.println("Enter READY when you are ready to start the game!");
-            String playerReady = scanner.nextLine();
-            if (playerReady.equals("READY")){
+
+                System.out.println("Enter READY when you are ready to start the game!");
+                String playerReady = scanner.nextLine();
+                if (playerReady.equals("READY")) {
+                    notifyReady();
+                }
+            } else {
+                joinGame(name);
                 notifyReady();
             }
 
+    }
+
+    public void invalidName(boolean isInvalidName){
+        this.isInvalidName = isInvalidName;
     }
 
     /**
@@ -79,7 +92,11 @@ public class Controller {
      */
     public void joinGame(String input) {
         local_client = Client.createClient(input, "localhost", PORT, this);
-        player = new HumanPlayer(input);
+        if (input.equalsIgnoreCase("smart")){
+            player = new SmartComputerPlayer(input);
+        } else {
+            player = new HumanPlayer(input);
+        }
         local_client.sendMessage(Protocol.CLIENT_HELLO + Protocol.COMMAND_SEPARATOR + input);
     }
 
@@ -95,12 +112,48 @@ public class Controller {
      */
     public void startGame() {
         start_game = true;
+        if (player instanceof SmartComputerPlayer){
+            player.setTable(this.table);
+        }
     }
+
+    public void playCurrentTurn() {
+        if (player instanceof SmartComputerPlayer) {
+            playTurnComputer((SmartComputerPlayer) player);
+        } else {
+            playTurnHuman();
+        }
+    }
+
+    private void playTurnComputer(SmartComputerPlayer computerPlayer) {
+
+        boolean moveMade = computerPlayer.playTurn(pool);
+        if (!moveMade) {
+            System.out.println(computerPlayer.getName() + " couldn't make a move and drew a tile.");
+        }
+        StringBuilder formattedMoves = new StringBuilder("[");
+        List<String> moves = computerPlayer.getMoveHistory();
+        for (int i = 0; i < moves.size(); i++) {
+            formattedMoves.append(moves.get(i)); // Extracts the inner element
+            if (i < moves.size() - 1) {
+                formattedMoves.append("],[");
+            }
+        }
+        formattedMoves.append("]");
+        if (formattedMoves.isEmpty()){
+            formattedMoves.append("[]");
+        }
+        System.out.println("Moves: " + formattedMoves);
+        // Send moves to the server
+        local_client.sendMessage(Protocol.CLIENT_MOVES + Protocol.COMMAND_SEPARATOR + formattedMoves);
+
+    }
+
 
     /**
      * Continuously takes input from the player until "ENDMOVE" is received.
      */
-    public void playTurn() {
+    public void playTurnHuman() {
         System.out.println("Enter your moves (type ENDMOVE to end your turn)");
         List<String> moves = new ArrayList<>();
         StringBuilder formattedMoves = null;
@@ -200,14 +253,20 @@ public class Controller {
     }
 
     public void resetRound(){
-        System.out.println("Would you like to play another round?");
-        String input = scanner.nextLine();
+        String input;
+        if (player instanceof HumanPlayer) {
+            System.out.println("Would you like to play another round?");
+            input = scanner.nextLine();
+        } else {
+            input = "Yes";
+        }
         if (input.equals("YES")){
             this.table.reset();
             this.player.resetSkippedTurn();
             this.player.resetScore();
             local_client.sendMessage(Protocol.CLIENT_PLAYAGAIN + Protocol.COMMAND_SEPARATOR + input);
         }
+
 
     }
 

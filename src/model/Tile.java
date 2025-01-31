@@ -37,9 +37,13 @@ public class Tile {
     public String toString(){
         String toReturn = "";
         if (color!=null) {
-            toReturn = color.toString().substring(0,1) + number;
+            if (number >= 10) {
+                toReturn = color.toString().substring(0, 1) + number;
+            } else {
+                toReturn = color.toString().substring(0, 1) +number + " ";
+            }
         } else {
-            toReturn = "J";
+            toReturn = " J ";
         }
         return toReturn;
     }

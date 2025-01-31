@@ -122,7 +122,7 @@ public class Client extends Thread {
             case Protocol.SERVER_TURN:
                 System.out.println("It's " + data[1] + "'s turn!");
                 if (data[1].equals(clientName)) {
-                   c.playTurn();
+                   c.playCurrentTurn();
                 }
                 break;
             case Protocol.SERVER_ROUND:
@@ -167,6 +167,7 @@ public class Client extends Thread {
                         break;
                     case Protocol.ERROR_INVALID_NAME:
                         print("Error: Invalid name provided.");
+                        c.invalidName(true);
                         break;
                     case Protocol.ERROR_UNSUPPORTED_FLAG:
                         print("Error: Unsupported flag in request.");
@@ -174,7 +175,7 @@ public class Client extends Thread {
                 }
                 break;
             default:
-                print("Unrecognized command: " + command); // Handle unknown commands
+                print("Error: Unsupported flag in request.");
                 break;
         }
     }

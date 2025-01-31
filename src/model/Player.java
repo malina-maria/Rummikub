@@ -33,6 +33,7 @@ public abstract class Player {
             score = score + points;
         }
     }
+    public abstract void setTable(Table table);
 
     public void updateWonRounds(){
         wonRounds++;

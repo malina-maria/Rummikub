@@ -24,6 +24,11 @@ public class LocalGame {
     // Start the game (initialize game state, shuffle tiles, etc.)
     public void startGame() throws GameException {
         boolean continueGame = true;
+        for (Player player:players){
+            if (player instanceof SmartComputerPlayer){
+                player.setTable(this.table);
+            }
+        }
         while (continueGame) {
             System.out.println("Game Started!");
             resetRound();
@@ -57,8 +62,14 @@ public class LocalGame {
         for (Player player : players) {
             player.drawFromPool(pool, 14);
         }
-        players[0].getRack().add(new Tile(0, null));
-        players[0].getRack().add(new Tile(0, null));
+    }
+
+    private void updatePlayerTurn() {
+        if (currentPlayerIndex != PLAYER_COUNT - 1) {
+            currentPlayerIndex++;
+        } else {
+            currentPlayerIndex = 0;
+        }
     }
 
     // Play turns until the game is over
@@ -71,6 +82,22 @@ public class LocalGame {
             List<String> tileHistory = new ArrayList<>();
             Map<Integer, List<String>> tileSets = new HashMap<>();
             System.out.println("- - - Current player: " + currentPlayer.getName() + " - - -");
+
+            // **CHECK IF PLAYER IS A COMPUTER**
+            if (currentPlayer instanceof SmartComputerPlayer) {
+                SmartComputerPlayer aiPlayer = (SmartComputerPlayer) currentPlayer;
+                boolean moveMade = aiPlayer.playTurn(pool);
+
+                if (!moveMade) {
+                    System.out.println(aiPlayer.getName() + " could not make a move and drew a tile.");
+                }
+                System.out.println(currentPlayer.getRack());
+                // Skip to the next turn after AI moves
+                this.update();
+                updatePlayerTurn();
+                continue; // **Go to the next player**
+            }
+
             while (true) {
                 System.out.println("Choose between MOVE, PLACE, DRAW, ENDMOVE");
                 System.out.println(currentPlayer.getRack());

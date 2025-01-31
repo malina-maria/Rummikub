@@ -12,6 +12,8 @@ import java.util.logging.Logger;
 import model.GameException;
 import model.HumanPlayer;
 import model.Player;
+import model.SmartComputerPlayer;
+
 import static networking.Server.logger;
 
 
@@ -51,8 +53,16 @@ public class ClientHandler extends Thread {
     public void announce() throws IOException {
         String[] first_msg = in.readLine().split(Protocol.COMMAND_SEPARATOR);
         clientName = first_msg[1];
-        p = new HumanPlayer(clientName);
-        server.addPlayer(p);
+        if (Protocol.isValidName(clientName)) {
+            if (clientName.equalsIgnoreCase("smart")) {
+                p = new SmartComputerPlayer(clientName);
+            } else {
+                p = new HumanPlayer(clientName);
+            }
+            server.addPlayer(p);
+        } else {
+            server.sendError(this, Protocol.ERROR_INVALID_NAME);
+        }
     }
 
     /**
@@ -73,17 +83,13 @@ public class ClientHandler extends Thread {
                         //System.out.println("ClientHandler received: " + message);
                         decodeClientMsg(message);
                     }
-                }catch(SocketException e2) {
-                    logger.warning("SocketException occurred: " + e2.getMessage());
-                    //shutdown();
-                } catch (GameException e) {
-                    logger.severe("GameException occurred: " + e.getMessage());
-                    throw new RuntimeException(e);
+                } catch (GameException | SocketException e) {
+                    server.sendError(this, Protocol.ERROR_CONNECTION_REFUSED);
                 }
             } catch (IOException e) {
                 logger.severe("IOException occurred while reading client message: " + e.getMessage());
                 e.printStackTrace();
-                //shutdown();
+                shutdown();
             }
         }while(!exit);
     }
@@ -91,8 +97,8 @@ public class ClientHandler extends Thread {
     public void decodeClientMsg(String msg) throws GameException {
         String[] data = msg.split(Protocol.COMMAND_SEPARATOR);
         String command = data[0];
-        System.out.println(command);
-        System.out.println("Second entry of message: " + data[1]);
+        //System.out.println(command);
+        //System.out.println("Second entry of message: " + data[1]);
 
         switch(command) {
             case Protocol.CLIENT_HELLO:
@@ -114,7 +120,7 @@ public class ClientHandler extends Thread {
                 server.shutdown(this);
                 break;
             default:
-                System.out.println("Invalid Command: " + command);
+               server.sendError(this, Protocol.ERROR_UNSUPPORTED_FLAG);
                 break;
         }
 
