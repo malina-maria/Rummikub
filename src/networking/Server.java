@@ -21,7 +21,9 @@ public class Server extends Thread {
 
     /**
      * Creates and starts a new server instance on the specified port.
+     * 
      * @param port The port number to bind the server to.
+     * @param useTimer Whether to enable a turn timer for players.
      * @return The created Server instance.
      */
     public static Server createServer(int port, boolean useTimer) {
@@ -40,7 +42,12 @@ public class Server extends Thread {
     private int skippedTurns = 0;
     private List<Player> playersToRestart = new ArrayList<>();
     public static final Logger logger = Logger.getLogger(Server.class.getName());
-    /** Constructs a new Server object */
+    /**
+     * Constructs a new Server object.
+     *
+     * @param portArg The port number to bind the server to.
+     * @param useTimer Whether to enable a turn timer for players.
+     */
     public Server(int portArg, boolean useTimer) {
         this.useTimer = useTimer;
         this.threads = new ArrayList<>();
@@ -54,8 +61,13 @@ public class Server extends Thread {
         }
     }
 
-    private ClientHandler findClientHandler(){
-        for (ClientHandler thread:threads) {
+    /**
+     * Finds the client handler for the current player.
+     * 
+     * @return The ClientHandler for the current player, or null if not found.
+     */
+    private ClientHandler findClientHandler() {
+        for (ClientHandler thread : threads) {
             if (thread.getPlayer() == currentgame.getCurrentPlayer()) {
                 return thread;
             }
@@ -64,6 +76,10 @@ public class Server extends Thread {
     }
 
     // TODO: Handle case where ch_new = null
+    /**
+     * Advances the game to the next player's turn.
+     * Cancels any running timers, updates the game state, and starts a new turn timer if needed.
+     */
     private synchronized void startNextPlayer() {
         if (useTimer && turnTickTask != null) {
             turnTickTask.cancel(false);
@@ -83,15 +99,19 @@ public class Server extends Thread {
     private long startTime;  // Timestamp when the turn started
     private static final int TURN_DURATION = 30;  // 30 seconds
 
+    /**
+     * Starts the turn timer for the specified player.
+     * 
+     * @param ch The client handler for the player whose turn is starting.
+     */
     private void startTurnTimer(ClientHandler ch) {
         if (useTimer) {
             if (turnTickTask != null && !turnTickTask.isCancelled()) {
                 turnTickTask.cancel(true); // Force cancel any existing timer
             }
-
+    
             startTime = System.currentTimeMillis();
-            //System.out.println("starting timer!");
-
+    
             turnTickTask = scheduler.scheduleAtFixedRate(() -> {
                 if (!ch.getPlayer().equals(currentgame.getCurrentPlayer())) {
                     turnTickTask.cancel(false); // Cancel if the turn has transitioned
@@ -99,10 +119,8 @@ public class Server extends Thread {
                 }
                 long elapsedTime = (System.currentTimeMillis() - startTime) / 1000;
                 long remainingTime = TURN_DURATION - elapsedTime;
-
+    
                 if (remainingTime <= 0) {
-                    //System.out.println("timer out!");
-                    //System.out.println("Player " + ch.getPlayer().getName() + " took too long! Moving to the next player...");
                     ch.getPlayer().drawFromPool(currentgame.getPool(), 3);
                     sendHand(ch);
                     ch.sendMessage(Protocol.SERVER_TIMEOUT + Protocol.COMMAND_SEPARATOR + ch.getPlayer().getName());
@@ -172,6 +190,8 @@ public class Server extends Thread {
 
     /**
      * Sends the current player's hand to the client.
+     *
+     * @param ch The client handler to send the current player's hand to.
      */
     public void sendHand(ClientHandler ch) {
         ch.sendMessage(Protocol.SERVER_HAND + Protocol.COMMAND_SEPARATOR + currentgame.getCurrentPlayer().getRack());
@@ -208,7 +228,8 @@ public class Server extends Thread {
 
     /**
      * Converts the current game board to a string representation.
-     * @return The string representation of the board.
+     *
+     * @return The string representation of the current game board.
      */
     public String boardToString(){
         StringBuilder board = new StringBuilder();
@@ -246,6 +267,7 @@ public class Server extends Thread {
         players.add(p);
         //welcomeMessage(p);
     }
+
 
     /**
      * Marks a player as ready and starts the game if all players are ready.
@@ -300,38 +322,50 @@ public class Server extends Thread {
      * @param ch The client handler that sent the move.
      */
     public void move(String stringMoves, ClientHandler ch) {
-        //cancelTurnTimer(); // Cancel timer for the current player's turn
+        // Cancel timer for the current player's turn if it's active.
+        //cancelTurnTimer(); 
+    
+        // Initialize key variables to track the move history and temporary game state.
         List<String> tileHistory = new ArrayList<>();
         Map<Integer, List<String>> tileSets = new HashMap<>();
         String[] moves;
         int invalidActions = 0;
+    
+        // Create a copy of the current table to simulate moves without modifying the original state.
         Table copy = currentgame.getTable().makeCopy();
-        stringMoves = stringMoves.substring(1,stringMoves.length()-1);
-        //System.out.println("Length of input movesString:" + stringMoves.length());
-        //System.out.println("Moves received by server: " + stringMoves);
+    
+        // Remove enclosing brackets from the incoming move string and split it into individual moves.
+        stringMoves = stringMoves.substring(1, stringMoves.length() - 1);
+    
         if (!stringMoves.isEmpty()) {
+            // Split the input string into an array of moves.
             moves = stringMoves.split("],\\[");
         } else {
+            // Handle the case where no moves were provided; default to a "draw" action.
             List<String> drawMove = new ArrayList<>();
             drawMove.add(Protocol.ACTION_DRAW);
             moves = drawMove.toArray(new String[0]);
         }
 
-        if (moves.length==1 && moves[0].equalsIgnoreCase(Protocol.ACTION_DRAW) && !currentgame.getPool().isEmpty()) {
-            //System.out.println("drawing from pool");
-            currentgame.getCurrentPlayer().drawFromPool(currentgame.getPool(), 1);
-        } else if (moves.length == 0 && currentgame.getPool().isEmpty()){ // TODO: Test, it might not work
+        // Handle the "draw" action if no valid moves were input or the player requested it explicitly.
+        if (moves.length == 1 && moves[0].equalsIgnoreCase(Protocol.ACTION_DRAW) && !currentgame.getPool().isEmpty()) {
+            currentgame.getCurrentPlayer().drawFromPool(currentgame.getPool(), 1); // Draw one tile from the pool.
+        } else if (moves.length == 0 && currentgame.getPool().isEmpty()) { 
+            // Handle the case where no moves were provided, and the pool is empty, resulting in a skipped turn.
             ch.getPlayer().updateSkippedTurn();
-        } else if (moves.length > 0 && !Objects.equals(moves[0], Protocol.ACTION_DRAW)){
+        } else if (moves.length > 0 && !Objects.equals(moves[0], Protocol.ACTION_DRAW)) {
             //System.out.println("Entering Move/Place processing.");
+            // Process each move independently, validating and applying it step by step to the copied state.
             for (String input : moves) {
                 String[] commands = input.split(Protocol.LIST_SEPARATOR);
-                System.out.println(commands);
+                System.out.println(commands); // Debug log to show commands being processed.
                 if (commands.length == 5 && commands[0].equalsIgnoreCase(Protocol.ACTION_MOVE) && currentgame.getCurrentPlayer().madeInitialMeld()) {
+                    // Parse "move" commands and attempt to apply the move to the copied game table.
                     TileMovement tileMovement = new TileMovement(Integer.parseInt(commands[1]), commands[2], Integer.parseInt(commands[3]), Integer.parseInt(commands[4]));
                     try {
-                        tileMovement.makeMove(copy);
+                        tileMovement.makeMove(copy); // Simulate the move on the copied game table.
                     } catch (GameException e) {
+                        // If the move is invalid, notify the client and increment the invalid action counter.
                         sendInvalid(ch, Protocol.INVALID_ILLEGAL_ACTION);
                         invalidActions++;
                     }
@@ -340,14 +374,17 @@ public class Server extends Thread {
                     tileHistory.add(tileToPlace);
                     int toTileSet = Integer.parseInt(commands[2]);
                     int toIndexInTileSet = Integer.parseInt(commands[3]);
+                    // Attempt to place the specified tile into the new tile set at the specified position.
                     TilePlacement tilePlacement = new TilePlacement(tileToPlace, toTileSet, toIndexInTileSet);
-                    //print("Rack of player:" + currentgame.getCurrentPlayer().getRack());
+                    
                     try {
+                        // Simulate the tile placement on the copied game table.
                         tilePlacement.makeMove(copy, currentgame.getCurrentPlayer().getRack());
                     } catch (GameException e) {
-                       sendInvalid(ch,Protocol.INVALID_TILE_NOT_OWNED);
-                       invalidActions++;
-                       break;
+                        // If an error occurs (e.g., player doesn't own the tile), notify the client and exit processing.
+                        sendInvalid(ch, Protocol.INVALID_TILE_NOT_OWNED);
+                        invalidActions++;
+                        break;
                     }
                     if (!currentgame.getCurrentPlayer().madeInitialMeld()) {
                         //Store all the tiles placed in the table, together with the associated set number
@@ -400,14 +437,18 @@ public class Server extends Thread {
 
             if (currentgame.getCurrentPlayer().madeInitialMeld() && invalidActions == 0) {
                 if (copy.isTableValid()) {
+                    // If the updated table is valid, update the current game state with the new table configuration.
                     currentgame.updateTable(copy);
+                    // Remove successfully placed tiles from the player's rack.
                     for (String tile : tileHistory) {
                         currentgame.getCurrentPlayer().getRack().removeIf(rackTile -> rackTile.toString().equals(tile));
                     }
                 } else {
+                    // If the table is invalid, penalize the player by drawing from the pool and resetting their move history.
                     currentgame.getCurrentPlayer().drawFromPool(currentgame.getPool(), 1);
                     currentgame.getCurrentPlayer().getMoveHistory().clear();
-                    // Place all tiles back in rack
+                
+                    // Place all tiles back into the player's rack.
                     for (String tile : tileHistory) {
                         if (tile.equals("J")) {
                             currentgame.getCurrentPlayer().getRack().add(new Tile(0, null));
@@ -415,6 +456,8 @@ public class Server extends Thread {
                             currentgame.getCurrentPlayer().getRack().add(new Tile(Integer.parseInt(tile.substring(1)), TileColor.fromAbbreviation(tile.substring(0, 1))));
                         }
                     }
+                
+                    // Notify the client of an invalid action.
                     sendInvalid(ch, Protocol.INVALID_ILLEGAL_ACTION);
                 }
             }
@@ -455,11 +498,21 @@ public class Server extends Thread {
         }
     }
 
+    /**
+     * Checks whether the current game round is over based on the number of skipped turns.
+     *
+     * @param skippedTurns The number of turns skipped by players.
+     * @return True if the round is over; otherwise, false.
+     */
     public boolean roundOver(int skippedTurns){
         Player roundWinner = currentgame.getRoundWinner(skippedTurns);
         return roundWinner != null;
     }
 
+    /**
+     * Returns a formatted string containing the names and scores of all players.
+     * @return A string in the format "[playerName1~score1],[playerName2~score2],..."
+     */
     public String returnScores(){
         StringBuilder message = new StringBuilder();
         for (Player player:players){

@@ -12,6 +12,12 @@ public class Run implements Sets {
     }
 
 
+    /**
+     * Checks if the current run set is valid.
+     * 
+     * @return true if the run consists of at least 3 tiles in consecutive order and of the same color, 
+     *         accounting for jokers; false otherwise
+     */
     @Override
     public boolean isValid() {
         if (tiles.size() < 3) {
@@ -57,6 +63,11 @@ public class Run implements Sets {
         return true;
     }
 
+    /**
+     * Retrieves the list of tiles in the current run set.
+     * 
+     * @return the list of tiles in the run
+     */
     @Override
     public List<Tile> getTiles() {
         return this.tiles;

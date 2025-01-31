@@ -36,19 +36,27 @@ public class ClientHandler extends Thread {
      * Constructs a ClientHandler object
      * Initialises both Data streams.
      */
-    //@ requires serverArg != null && sockArg != null;
+    /**
+     * Constructs a ClientHandler object.
+     * Initializes both Data streams.
+     *
+     * @param serverArg The server that the client is connected to.
+     * @param sockArg   The socket for communication with the client.
+     * @throws IOException If an I/O error occurs when creating the input/output streams.
+     */
     public ClientHandler(Server serverArg, Socket sockArg) throws IOException {
         this.server = serverArg;
         this.out = new BufferedWriter(new OutputStreamWriter(sockArg.getOutputStream()));
         this.in = new BufferedReader(new InputStreamReader(sockArg.getInputStream()));
-
+    
     }
 
     /**
      * Reads the name of a Client from the input stream and sends
      * a broadcast message to the Server to signal that the Client
-     * is participating in the chat. Notice that this method should
-     * be called immediately after the ClientHandler has been constructed.
+     * is participating in the chat.
+     *
+     * @throws IOException If an I/O error occurs while reading input.
      */
     public void announce() throws IOException {
         String[] first_msg = in.readLine().split(Protocol.COMMAND_SEPARATOR);
@@ -73,6 +81,11 @@ public class ClientHandler extends Thread {
      * the message, the method concludes that the socket connection is
      * broken and shutdown() will be called.
      */
+    /**
+     * Listens for client messages and processes them by decoding and passing
+     * valid data to the server. Handles possible exceptions caused by 
+     * connection issues or invalid inputs.
+     */
     @Override
     public void run() {
         do {
@@ -94,12 +107,19 @@ public class ClientHandler extends Thread {
         }while(!exit);
     }
 
+    /**
+     * Decodes a message received from the client and acts based on its
+     * command type (e.g., signal readiness, move, disconnect).
+     *
+     * @param msg The message received from the client.
+     * @throws GameException If an invalid move or game-related error occurs.
+     */
     public void decodeClientMsg(String msg) throws GameException {
         String[] data = msg.split(Protocol.COMMAND_SEPARATOR);
         String command = data[0];
         //System.out.println(command);
         //System.out.println("Second entry of message: " + data[1]);
-
+    
         switch(command) {
             case Protocol.CLIENT_HELLO:
                 server.sendHello(this);
@@ -123,9 +143,14 @@ public class ClientHandler extends Thread {
                server.sendError(this, Protocol.ERROR_UNSUPPORTED_FLAG);
                 break;
         }
-
+    
     }
 
+    /**
+     * Retrieves the player associated with this client handler.
+     *
+     * @return The player linked to this client handler.
+     */
     public Player getPlayer() {
         return p;
     }
@@ -135,6 +160,12 @@ public class ClientHandler extends Thread {
      * connection to the Client. If the writing of a message fails,
      * the method concludes that the socket connection has been lost
      * and shutdown() is called.
+     */
+    /**
+     * Sends a message to the client over the socket connection.
+     * If an error occurs during sending, the client handler shuts down.
+     *
+     * @param msg The message to be sent to the client.
      */
     public void sendMessage(String msg) {
         msg = msg.replace(" ", "");

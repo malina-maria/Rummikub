@@ -10,15 +10,28 @@ public class Table {
     private static final List<String> COLUMN_NUMBERING = new ArrayList<>(Arrays.asList("   | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 "));
     private static List<String> ROW_NUMBERING;
 
+    /**
+     * Constructs a new Table instance with an empty board.
+     */
     public Table(){
         this.table = new ArrayList<>();
         ROW_NUMBERING = new ArrayList<>();
     }
 
+    /**
+     * Returns the current state of the table as a list of rows.
+     *
+     * @return a List of Lists representing the table.
+     */
     public List<List<Tile>> getBoard(){
         return this.table;
     }
 
+    /**
+     * Creates a deep copy of the current Table instance.
+     *
+     * @return a new Table object identical to the original.
+     */
     public Table makeCopy(){
         Table copy = new Table();
         for (int i = 0; i < table.size(); i++) {
@@ -31,11 +44,19 @@ public class Table {
         return copy;
     }
 
+    /**
+     * Resets the table to its initial empty state.
+     */
     public void reset(){
         this.table = new ArrayList<>();
         ROW_NUMBERING = new ArrayList<>();
     }
 
+    /**
+     * Returns a string representation of the table.
+     *
+     * @return a String that visually represents the table and its tiles.
+     */
     public String toString(){        
         // Create a string representation of the table
         // First row is COLUMN_NUMBERING
@@ -52,9 +73,14 @@ public class Table {
             tableString.append("\n");
         }
         return tableString.toString();
-
     }
 
+    /**
+     * Converts a row of tiles into a valid set.
+     *
+     * @param row the row of tiles to convert.
+     * @return a Sets object if the row forms a valid set; otherwise, null.
+     */
     public Sets convertRowToSet(List<Tile> row){
         Sets potentialSet = new Run(row);
         if (potentialSet.isValid())
@@ -67,6 +93,12 @@ public class Table {
         return null;
     }
 
+    /**
+     * Checks if a given row index is valid within the table.
+     *
+     * @param row the row index to check.
+     * @return true if the row index is valid; otherwise, false.
+     */
     public boolean isRow(int row){
         return (row >= 0 && row < this.table.size());
     }

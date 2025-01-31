@@ -53,7 +53,13 @@ public class Client extends Thread {
     private boolean exit = false;
 
     /**
-     * Constructs a Client-object and tries to make a socket connection
+     * Constructs a Client object and establishes a socket connection to the server.
+     *
+     * @param name   the name of the client
+     * @param host   the InetAddress of the server
+     * @param port   the port number to connect on
+     * @param c      the controller to manage client operations
+     * @throws IOException if an I/O error occurs while creating the socket or its input/output streams
      */
     public Client(String name, InetAddress host, int port, Controller c) throws IOException {
         this.clientName = name;
@@ -69,7 +75,8 @@ public class Client extends Thread {
     }
 
     /**
-     * Reads the messages in the socket connection.
+     * Continuously listens for incoming messages from the server and decodes them.
+     * Handles potential errors during message reading and processing.
      */
     public void run() {
         do {
@@ -78,22 +85,28 @@ public class Client extends Thread {
                 incoming += input.readLine();
                 if (incoming.equals("")) {
                     System.out.println("no response...");
-                }else {
+                } else {
                     //System.out.println("Client received: "+incoming);
                     decodeServerMsg(incoming);
                 }
             } catch (IOException | GameException e1) {
                 System.out.println("Error: Did not manage to receive the message!");
             }
-        }while(exit == false);
+        } while (exit == false);
     }
 
+    /**
+     * Decodes and processes a message received from the server.
+     *
+     * @param msg the message string sent by the server
+     * @throws GameException if there is an error in game logic during message processing
+     */
     public void decodeServerMsg(String msg) throws GameException {
         String[] data = Protocol.decodeArgs(msg);
-        System.out.println("Incoming msg >> "+msg);
+        System.out.println("Incoming msg >> " + msg);
         String command = data[0];
-        
-        switch(command) {
+    
+        switch (command) {
             case Protocol.SERVER_HELLO:
                 // Parse server acknowledgment message
                 String playerNames = data[1]; // List of connected player names
@@ -122,13 +135,13 @@ public class Client extends Thread {
             case Protocol.SERVER_TURN:
                 System.out.println("It's " + data[1] + "'s turn!");
                 if (data[1].equals(clientName)) {
-                   c.playCurrentTurn();
+                    c.playCurrentTurn();
                 }
                 break;
             case Protocol.SERVER_ROUND:
-               System.out.println("This round has ended! The scores are: " + data[1]);
-               c.resetRound();
-               break;
+                System.out.println("This round has ended! The scores are: " + data[1]);
+                c.resetRound();
+                break;
             case Protocol.SERVER_ENDGAME:
                 print("The game has ended with winner " + data[1]);
                 break;
@@ -158,7 +171,7 @@ public class Client extends Thread {
                 }
                 break;
             case Protocol.SERVER_ERROR:
-                switch(data[1]) {
+                switch (data[1]) {
                     case Protocol.ERROR_CONNECTION_REFUSED:
                         print("Error: Connection refused by the server.");
                         break;
@@ -180,16 +193,25 @@ public class Client extends Thread {
         }
     }
 
-    /** send a message to a ClientHandler. */
+    /**
+     * Sends a formatted message to the server.
+     * Removes any spaces from the message before sending it.
+     *
+     * @param msg the message to be sent to the server
+     */
     public void sendMessage(String msg) {
         msg = msg.replace(" ", "");
-        System.out.println("sending to server: "+msg);
+        System.out.println("sending to server: " + msg);
         output.write(msg + "\n");
         System.out.println("sent!");
         output.flush();
     }
 
-    /** returns the client name */
+    /**
+     * Retrieves the name of the client.
+     *
+     * @return the name of the client as a string
+     */
     public String getClientName() {
         return clientName;
     }

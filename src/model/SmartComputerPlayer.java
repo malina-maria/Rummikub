@@ -7,17 +7,33 @@ public class SmartComputerPlayer extends Player {
     private final List<Tile> rack;
     private final List<String> moveHistory;
 
+    /**
+     * Constructs a SmartComputerPlayer instance.
+     * 
+     * @param name the name of the computer player
+     */
     public SmartComputerPlayer(String name) {
         super(name);
         this.rack = super.getRack();// Access rack from the abstract Player class
         this.moveHistory = new ArrayList<>();
     }
 
+    /**
+     * Sets the table the computer player interacts with.
+     * 
+     * @param table the game table to associate with this player
+     */
     public void setTable(Table table){
         this.table = table;
     }
 
 
+    /**
+     * Executes the computer player's turn by attempting to make valid moves or drawing tiles.
+     * 
+     * @param pool the pool of tiles to draw from if no moves can be made
+     * @return true if the player successfully plays tiles, false otherwise
+     */
     public boolean playTurn(List<Tile> pool) {
         moveHistory.clear(); // Clear AI's moves for this turn
 
@@ -55,32 +71,61 @@ public class SmartComputerPlayer extends Player {
     }
 
     // Converts AI's moves into the exact required format
+    /**
+     * Records details of tiles played during the turn in the move history.
+     * 
+     * @param tiles the list of tiles played
+     * @param setIndex the index of the set on the table where tiles were placed
+     */
     private void addMovesToHistory(List<Tile> tiles, int setIndex) {
         for (int i = 0; i < tiles.size(); i++) {
             Tile tile = tiles.get(i);
             String move = "P," + tile.toString() + "," + setIndex + "," + i;
             moveHistory.add(move);
-
+    
         }
     }
 
+    /**
+     * Retrieves the history of moves made by the computer player.
+     * 
+     * @return a list of move descriptions
+     */
     public List<String> getMoveHistory() {
         return moveHistory;
     }
 
+    /**
+     * Adds a move to the move history.
+     * 
+     * @param move the move to record in the history
+     */
     @Override
     public void addToMoveHistory(String move){
         moveHistory.add(move);
     }
 
+    /**
+     * Retrieves the tiles currently in the player's rack.
+     * 
+     * @return a list of tiles in the rack
+     */
     public List<Tile> getRack(){
         return this.rack;
     }
 
+    /**
+     * Clears all tiles from the player's rack.
+     */
     public void resetRack(){
         this.rack.clear();
     }
 
+    /**
+     * Finds an initial meld that satisfies the minimum scoring condition.
+     * 
+     * @return a list of initial meld sets or an empty list if no valid meld is found
+     */
     private List<Sets> findInitialMeld() {
         List<Sets> allPossibleSets = findValidMoves();
         List<Sets> initialMeld = new ArrayList<>();
@@ -98,14 +143,31 @@ public class SmartComputerPlayer extends Player {
         return score >= 30 ? initialMeld : new ArrayList<>();
     }
 
+    /**
+     * Calculates the total score of multiple sets.
+     * 
+     * @param sets the list of sets to calculate the score for
+     * @return the total score of the sets
+     */
     private int calculateScore(List<Sets> sets) {
         return sets.stream().mapToInt(this::calculateSetScore).sum();
     }
 
+    /**
+     * Computes the score of a single set by summing up its tile numbers.
+     * 
+     * @param set the set to calculate the score for
+     * @return the score of the set
+     */
     private int calculateSetScore(Sets set) {
         return set.getTiles().stream().mapToInt(Tile::getNumber).sum();
     }
 
+    /**
+     * Identifies all valid moves by finding groups and runs.
+     * 
+     * @return a list of valid sets (groups and runs) that can be played
+     */
     private List<Sets> findValidMoves() {
         List<Sets> validMoves = new ArrayList<>();
         validMoves.addAll(findGroups());
@@ -113,6 +175,11 @@ public class SmartComputerPlayer extends Player {
         return validMoves;
     }
 
+    /**
+     * Finds all valid groups of tiles from the player's rack, optionally using jokers.
+     * 
+     * @return a list of groups formed from the rack
+     */
     private List<Sets> findGroups() {
         List<Sets> groups = new ArrayList<>();
         Map<Integer, List<Tile>> numberToTiles = new HashMap<>();
@@ -163,6 +230,11 @@ public class SmartComputerPlayer extends Player {
 
 
 
+    /**
+     * Identifies all valid runs of tiles from the player's rack, optionally using jokers.
+     * 
+     * @return a list of runs formed from the rack
+     */
     private List<Sets> findRuns() {
         List<Sets> runs = new ArrayList<>();
         Map<TileColor, List<Tile>> colorToTiles = new HashMap<>();
@@ -224,6 +296,11 @@ public class SmartComputerPlayer extends Player {
 
 
 
+    /**
+     * Removes specified tiles from the player's rack.
+     * 
+     * @param tiles the list of tiles to remove
+     */
     private void removeFromRack(List<Tile> tiles) {
         rack.removeAll(tiles);
     }

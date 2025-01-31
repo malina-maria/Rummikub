@@ -16,22 +16,14 @@ public class Controller {
     private static final int PORT = 3000;
     private Player player;
     private Client local_client;
-    private boolean paused = true;
-    private boolean player_turn = false; // Indicates if it's the player's turn
     private boolean start_game = false;
-    private boolean tile_addition_required = false;
-    private boolean board_update_available = false;
-    private boolean board_update_for_this_player;
-    private boolean rewrite_old_tiles;
-    private boolean pickup_tiles;
     private Server server;
-    private String[] tiles_to_add;
-    private String coordinates;
     private  Scanner scanner;
-    private boolean roundOver = false;
     private boolean isInvalidName = false;
+    
     /**
      * Initializes the game controller by setting up the table and generating the tile pool.
+     * Prompts the user for input to either create or join a game.
      */
     public Controller() {
             this.scanner = new Scanner(System.in);
@@ -71,14 +63,20 @@ public class Controller {
 
     }
 
-    public void invalidName(boolean isInvalidName){
+    /**
+     * Sets the flag indicating whether the provided name is invalid.
+     *
+     * @param isInvalidName A boolean indicating whether the name is invalid.
+     */
+    public void invalidName(boolean isInvalidName) {
         this.isInvalidName = isInvalidName;
     }
 
     /**
      * Creates a new game by setting up a server and joining it as the specified player.
      *
-     * @param name The name of the player creating the game.
+     * @param name     The name of the player creating the game.
+     * @param useTimer A boolean indicating whether a timer is used for the game.
      */
     public void createGame(String name, boolean useTimer) {
         server = Server.createServer(PORT, useTimer);
@@ -87,6 +85,7 @@ public class Controller {
 
     /**
      * Joins an existing game as a player with the specified name.
+     * Sets the player type based on the input name.
      *
      * @param input The name of the player joining the game.
      */
@@ -101,7 +100,8 @@ public class Controller {
     }
 
     /**
-     * Sends to client that the player is ready to proceed with the game.
+     * Notifies the server that the player is ready to proceed with the game.
+     * Sends a ready message to the server with the player's name.
      */
     public void notifyReady() {
         local_client.sendMessage(Protocol.CLIENT_READY+Protocol.COMMAND_SEPARATOR+local_client.getClientName());;
@@ -109,6 +109,7 @@ public class Controller {
 
     /**
      * Marks the game as ready to start.
+     * Sets up the game table for smart computer players.
      */
     public void startGame() {
         start_game = true;
@@ -117,6 +118,11 @@ public class Controller {
         }
     }
 
+    /**
+     * Plays the current turn for the player.
+     * Determines whether the current player is a human or a smart computer player
+     * and executes their turn accordingly.
+     */
     public void playCurrentTurn() {
         if (player instanceof SmartComputerPlayer) {
             playTurnComputer((SmartComputerPlayer) player);
@@ -125,8 +131,14 @@ public class Controller {
         }
     }
 
+    /**
+     * Executes the turn logic for a smart computer player.
+     *
+     * @param computerPlayer The SmartComputerPlayer instance that will play the turn.
+     *                       Includes logic for making a move or drawing a tile if no moves are possible.
+     */
     private void playTurnComputer(SmartComputerPlayer computerPlayer) {
-
+    
         boolean moveMade = computerPlayer.playTurn(pool);
         if (!moveMade) {
             System.out.println(computerPlayer.getName() + " couldn't make a move and drew a tile.");
@@ -146,12 +158,12 @@ public class Controller {
         System.out.println("Moves: " + formattedMoves);
         // Send moves to the server
         local_client.sendMessage(Protocol.CLIENT_MOVES + Protocol.COMMAND_SEPARATOR + formattedMoves);
-
     }
 
 
     /**
-     * Continuously takes input from the player until "ENDMOVE" is received.
+     * Handles the human player's turn by continuously taking input until "ENDMOVE" is received.
+     * Sends the player's moves or actions to the server after validation.
      */
     public void playTurnHuman() {
         System.out.println("Enter your moves (type ENDMOVE to end your turn)");
@@ -193,7 +205,13 @@ public class Controller {
         }
     }
 
-    public Tile getTileFromString(String str){
+    /**
+     * Converts a string representation of a tile into a Tile object.
+     *
+     * @param str The string representation of the tile (e.g., "R1", "B2", "J").
+     * @return The Tile object corresponding to the string.
+     */
+    public Tile getTileFromString(String str) {
         if (str.charAt(0) == 'J'){
             return new Tile(0,null);
         }
@@ -202,8 +220,12 @@ public class Controller {
         return new Tile(number, color);
     }
 
-    // updates local hand based on the info sent by server
-    public void updateHand(String data){
+    /**
+     * Updates the local hand based on the tile information sent by the server.
+     *
+     * @param data The string data containing the tiles to update the hand with.
+     */
+    public void updateHand(String data) {
         List<Tile> tileList = new ArrayList<>(); // The tiles server sent
         String[] tileStrings = data.substring(1, data.length() - 1).split(",");
         for (String str : tileStrings) { // Print each set
@@ -213,15 +235,31 @@ public class Controller {
         player.getRack().addAll(tileList);
     }
 
-    public String getStringBoard(){
+    /**
+     * Returns the current board configuration as a string.
+     *
+     * @return A string representing the current state of the board.
+     */
+    public String getStringBoard() {
         return this.table.toString();
     }
 
-    public String getStringHand(){
+    /**
+     * Returns the current hand of the player as a string.
+     *
+     * @return A string representing the tiles in the player's hand.
+     */
+    public String getStringHand() {
         return "HAND: " + player.getRack();
     }
 
-    public void updateBoardStatus(String tableConfiguration, String movesMade){
+    /**
+     * Updates the local board status based on the table configuration and moves made.
+     *
+     * @param tableConfiguration The current table configuration provided by the server.
+     * @param movesMade          The moves made by a player that need to be reflected on the board.
+     */
+    public void updateBoardStatus(String tableConfiguration, String movesMade) {
         // tableConfiguration comes in format [R1,R2,R3,R4],[b1,B1,R1],[Y10,Y11,Y12]. split it such
         // that I can extract each set by itself (example: set1 - R1,R2,R3,R4)
         // Remove the outer brackets and split by "],"
@@ -252,7 +290,11 @@ public class Controller {
         }
     }
 
-    public void resetRound(){
+    /**
+     * Resets the round and prompts the player to play another round if applicable.
+     * Clears the table and player's game state, and notifies the server.
+     */
+    public void resetRound() {
         String input;
         if (player instanceof HumanPlayer) {
             System.out.println("Would you like to play another round?");

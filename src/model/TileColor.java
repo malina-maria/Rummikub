@@ -3,8 +3,12 @@ package model;
 public enum TileColor {
     BLACK, BLUE, YELLOW, RED;
 
+    /**
+     * Returns a single-character representation of the TileColor.
+     *
+     * @return "B" for BLACK, "b" for BLUE, "Y" for YELLOW, "R" for RED.
+     */
     @Override
-    // I want to return the following strings for each color: "B" for BLACK, "b" for BLUE, "Y" for YELLOW, "R" for RED
     public String toString() {
         return switch (this) {
             case BLACK -> "B";
@@ -14,6 +18,13 @@ public enum TileColor {
         };
     }
 
+    /**
+     * Returns the TileColor corresponding to the given abbreviation.
+     *
+     * @param abbreviation the single-character abbreviation of the color ("B", "b", "Y", or "R").
+     * @return the TileColor matching the abbreviation.
+     * @throws IllegalArgumentException if the abbreviation is invalid.
+     */
     public static TileColor fromAbbreviation(String abbreviation) {
         return switch (abbreviation) {
             case "B" -> BLACK;
