@@ -31,6 +31,8 @@ public class ClientHandler extends Thread {
     private String clientName;
     private String features;
     private boolean exit = false;
+    private long timerStart = 0;
+    private long timerEnd = 0;
 
     /**
      * Constructs a ClientHandler object
@@ -117,8 +119,6 @@ public class ClientHandler extends Thread {
     public void decodeClientMsg(String msg) throws GameException {
         String[] data = msg.split(Protocol.COMMAND_SEPARATOR);
         String command = data[0];
-        //System.out.println(command);
-        //System.out.println("Second entry of message: " + data[1]);
     
         switch(command) {
             case Protocol.CLIENT_HELLO:
@@ -129,8 +129,7 @@ public class ClientHandler extends Thread {
                 server.setReady(p);
                 break;
             case Protocol.CLIENT_MOVES:
-                server.move(data[1], this);
-                break;
+            server.move(data[1], this);
             case Protocol.CLIENT_PLAYAGAIN:
                 server.restartRound(this, data[1]);
                 break;

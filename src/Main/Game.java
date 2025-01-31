@@ -319,7 +319,7 @@ public class Game {
                 && tileHistory.indexOf(tile) < tileHistory.size() - 1 
                 && !tileHistory.get(tileHistory.indexOf(tile) - 1).isJoker() 
                 && !tileHistory.get(tileHistory.indexOf(tile) + 1).isJoker()) {
-                previousTile = tileHistory.get(tileHistory.indexOf(tile) - 1).toString();
+                previousTile = tileHistory.get(tileHistory.indexOf(tile) - 1).toString().replace(" ", "");
                 score += Integer.parseInt(previousTile.substring(1)) + 1;
                 jokerCount++;
             }
@@ -328,14 +328,14 @@ public class Game {
             if (tile.isJoker() && tileHistory.indexOf(tile) > indexFirstNonJoker 
                 && tileHistory.indexOf(tile) < tileHistory.size() - 1 
                 && tileHistory.get(tileHistory.indexOf(tile) + 1).isJoker()) {
-                previousTile = tileHistory.get(tileHistory.indexOf(tile) - 1).toString();
+                previousTile = tileHistory.get(tileHistory.indexOf(tile) - 1).toString().replace(" ", "");
                 score += 2 * Integer.parseInt(previousTile.substring(1)) + 3;
             }
     
             // Handle case: Joker appears at the end of the run.
             if (tile.isJoker() && tileHistory.indexOf(tile) == tileHistory.size() - 1 
                 && !tileHistory.get(tileHistory.indexOf(tile) - 1).isJoker()) {
-                previousTile = tileHistory.get(tileHistory.indexOf(tile) - 1).toString();
+                previousTile = tileHistory.get(tileHistory.indexOf(tile) - 1).toString().replace(" ", "");
                 score += Integer.parseInt(previousTile.substring(1)) + 1;
             }
     

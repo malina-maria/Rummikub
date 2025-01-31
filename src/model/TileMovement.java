@@ -33,7 +33,8 @@ public class TileMovement extends TileAction {
     public void makeMove(Table table) throws GameException {
         Tile tileToMove = null;
         for (Tile tile: table.table.get(originSet)) {
-            if (tile.toString().equals(originTile)) {
+            String tileString = tile.toString().replace(" ", "");
+            if (tileString.equals(originTile)) {
                 tileToMove = tile;
                 break;
             }

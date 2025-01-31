@@ -154,7 +154,6 @@ public class Controller {
         if (formattedMoves.isEmpty()){
             formattedMoves.append("[]");
         }
-        System.out.println("Moves: " + formattedMoves);
         // Send moves to the server
         local_client.sendMessage(Protocol.CLIENT_MOVES + Protocol.COMMAND_SEPARATOR + formattedMoves);
     }
@@ -181,7 +180,6 @@ public class Controller {
                 moves.add(input);
             } else if (Objects.equals(input, "ENDMOVE")) {
                 if (!moves.isEmpty()) {
-                    System.out.println("Moves is not empty.");
                     // Add brackets and commas
                     formattedMoves = new StringBuilder("[");
                     for (int i = 0; i < moves.size(); i++) {
@@ -272,13 +270,13 @@ public class Controller {
                     setList.add(tableConfiguration.substring(1, tableConfiguration.length() - 1));
                     sets = setList.toArray(new String[0]);
                 }
-                System.out.println("Sets: " + sets);
+                //System.out.println("Sets: " + sets);
                 this.table.getBoard().clear();
                 for (String set : sets) { // Print each set
                     String[] tileString = set.split(",");
                     List<Tile> setToAdd = new ArrayList<>();
                     for (String str : tileString) {
-                        System.out.println("Tile string: " + str);
+                        //System.out.println("Tile string: " + str);
                         setToAdd.add(getTileFromString(str));
                     }
                     this.table.addRow(setToAdd);

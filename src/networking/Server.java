@@ -41,6 +41,8 @@ public class Server extends Thread {
     //private Timer turnTimer; // Reference to the timer task
     private int skippedTurns = 0;
     private List<Player> playersToRestart = new ArrayList<>();
+    private long timerEnd = 0;
+    private long timerStart = 0;
     public static final Logger logger = Logger.getLogger(Server.class.getName());
     /**
      * Constructs a new Server object.
@@ -81,54 +83,12 @@ public class Server extends Thread {
      * Cancels any running timers, updates the game state, and starts a new turn timer if needed.
      */
     private synchronized void startNextPlayer() {
-        if (useTimer && turnTickTask != null) {
-            turnTickTask.cancel(false);
-        }
         sendBoard();
         currentgame.nextPlayer();
         ClientHandler ch_new = findClientHandler();
         if (ch_new!=null)
             sendHand(ch_new);
         sendTurn();
-        if (useTimer) {
-            startTurnTimer(ch_new);
-        }
-    }
-
-    private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
-    private ScheduledFuture<?> turnTickTask;
-    private long startTime;  // Timestamp when the turn started
-    private static final int TURN_DURATION = 30;  // 30 seconds
-
-    /**
-     * Starts the turn timer for the specified player.
-     * 
-     * @param ch The client handler for the player whose turn is starting.
-     */
-    private void startTurnTimer(ClientHandler ch) {
-        if (useTimer) {
-            if (turnTickTask != null && !turnTickTask.isCancelled()) {
-                turnTickTask.cancel(true); // Force cancel any existing timer
-            }
-    
-            startTime = System.currentTimeMillis();
-    
-            turnTickTask = scheduler.scheduleAtFixedRate(() -> {
-                if (!ch.getPlayer().equals(currentgame.getCurrentPlayer())) {
-                    turnTickTask.cancel(false); // Cancel if the turn has transitioned
-                    return; // Exit early
-                }
-                long elapsedTime = (System.currentTimeMillis() - startTime) / 1000;
-                long remainingTime = TURN_DURATION - elapsedTime;
-    
-                if (remainingTime <= 0) {
-                    ch.getPlayer().drawFromPool(currentgame.getPool(), 3);
-                    sendHand(ch);
-                    ch.sendMessage(Protocol.SERVER_TIMEOUT + Protocol.COMMAND_SEPARATOR + ch.getPlayer().getName());
-                    startNextPlayer(); // Transition to the next player
-                }
-            }, 0, 1, TimeUnit.SECONDS);
-        }
     }
 
     /**
@@ -205,11 +165,15 @@ public class Server extends Thread {
         broadcast(Protocol.SERVER_BOARD + Protocol.COMMAND_SEPARATOR + boardToString() + Protocol.COMMAND_SEPARATOR + currentgame.getCurrentPlayer().getName() + Protocol.COMMAND_SEPARATOR + currentgame.getCurrentPlayer().getMoveHistory());
     }
 
+    public void sendTimeout(ClientHandler ch){
+        ch.sendMessage(Protocol.SERVER_TIMEOUT + Protocol.COMMAND_SEPARATOR + ch.getPlayer().getName());
+    }
     /**
      * Sends the turn.
      */
     public void sendTurn(){
         //System.out.println("Sending turn to: " + currentgame.getCurrentPlayer());
+        timerStart = System.currentTimeMillis();
         broadcast(Protocol.SERVER_TURN + Protocol.COMMAND_SEPARATOR + currentgame.getCurrentPlayer().getName());
     }
 
@@ -289,8 +253,7 @@ public class Server extends Thread {
             for (ClientHandler ch:threads){
                 sendHand(ch);
             }
-            sendTurn();
-            startTurnTimer(findClientHandler()); // Start the timer for the first player
+            sendTurn(); // Start the timer for the first player
         }
     }
 
@@ -315,153 +278,144 @@ public class Server extends Thread {
     public void removeHandler(ClientHandler handler) {
         threads.remove(handler);
     }
-
-
     /**
      * Processes a move action from a client and updates the game state.
      * @param stringMoves The move commands sent by the client.
      * @param ch The client handler that sent the move.
      */
     public void move(String stringMoves, ClientHandler ch) {
-        // Cancel timer for the current player's turn if it's active.
-        //cancelTurnTimer(); 
-    
-        // Initialize key variables to track the move history and temporary game state.
-        List<String> tileHistory = new ArrayList<>();
-        Map<Integer, List<String>> tileSets = new HashMap<>();
-        String[] moves;
-        int invalidActions = 0;
-    
-        // Create a copy of the current table to simulate moves without modifying the original state.
-        Table copy = currentgame.getTable().makeCopy();
-    
-        // Remove enclosing brackets from the incoming move string and split it into individual moves.
-        stringMoves = stringMoves.substring(1, stringMoves.length() - 1);
-    
-        if (!stringMoves.isEmpty()) {
-            // Split the input string into an array of moves.
-            moves = stringMoves.split("],\\[");
-        } else {
-            // Handle the case where no moves were provided; default to a "draw" action.
-            List<String> drawMove = new ArrayList<>();
-            drawMove.add(Protocol.ACTION_DRAW);
-            moves = drawMove.toArray(new String[0]);
+        timerEnd = System.currentTimeMillis();
+        boolean isOnTime = true;
+        if (useTimer) {
+            isOnTime = (timerEnd - timerStart) <= 30000;
         }
+        if (isOnTime) {
 
-        // Handle the "draw" action if no valid moves were input or the player requested it explicitly.
-        if (moves.length == 1 && moves[0].equalsIgnoreCase(Protocol.ACTION_DRAW) && !currentgame.getPool().isEmpty()) {
-            currentgame.getCurrentPlayer().drawFromPool(currentgame.getPool(), 1); // Draw one tile from the pool.
-        } else if (moves.length == 0 && currentgame.getPool().isEmpty()) { 
-            // Handle the case where no moves were provided, and the pool is empty, resulting in a skipped turn.
-            ch.getPlayer().updateSkippedTurn();
-        } else if (moves.length > 0 && !Objects.equals(moves[0], Protocol.ACTION_DRAW)) {
-            //System.out.println("Entering Move/Place processing.");
-            // Process each move independently, validating and applying it step by step to the copied state.
-            for (String input : moves) {
-                String[] commands = input.split(Protocol.LIST_SEPARATOR);
-                System.out.println(Arrays.toString(commands)); // Debug log to show commands being processed.
-                if (commands.length == 5 && commands[0].equalsIgnoreCase(Protocol.ACTION_MOVE) && currentgame.getCurrentPlayer().madeInitialMeld()) {
-                    // Parse "move" commands and attempt to apply the move to the copied game table.
-                    TileMovement tileMovement = new TileMovement(Integer.parseInt(commands[1]), commands[2], Integer.parseInt(commands[3]), Integer.parseInt(commands[4]));
-                    try {
-                        tileMovement.makeMove(copy); // Simulate the move on the copied game table.
-                    } catch (GameException e) {
-                        // If the move is invalid, notify the client and increment the invalid action counter.
+            // Initialize key variables to track the move history and temporary game state.
+            List<String> tileHistory = new ArrayList<>();
+            Map<Integer, List<String>> tileSets = new HashMap<>();
+            String[] moves;
+            int invalidActions = 0;
+
+            // Create a copy of the current table to simulate moves without modifying the original state.
+            Table copy = currentgame.getTable().makeCopy();
+
+            // Remove enclosing brackets from the incoming move string and split it into individual moves.
+            stringMoves = stringMoves.substring(1, stringMoves.length() - 1);
+
+            if (!stringMoves.isEmpty()) {
+                // Split the input string into an array of moves.
+                moves = stringMoves.split("],\\[");
+            } else {
+                // Handle the case where no moves were provided; default to a "draw" action.
+                List<String> drawMove = new ArrayList<>();
+                drawMove.add(Protocol.ACTION_DRAW);
+                moves = drawMove.toArray(new String[0]);
+            }
+
+            // Handle the "draw" action if no valid moves were input or the player requested it explicitly.
+            if (moves.length == 1 && moves[0].equalsIgnoreCase(Protocol.ACTION_DRAW) && !currentgame.getPool().isEmpty()) {
+                currentgame.getCurrentPlayer().drawFromPool(currentgame.getPool(), 1); // Draw one tile from the pool.
+            } else if (moves.length == 0 && currentgame.getPool().isEmpty()) {
+                // Handle the case where no moves were provided, and the pool is empty, resulting in a skipped turn.
+                ch.getPlayer().updateSkippedTurn();
+            } else if (moves.length > 0 && !Objects.equals(moves[0], Protocol.ACTION_DRAW)) {
+                //System.out.println("Entering Move/Place processing.");
+                // Process each move independently, validating and applying it step by step to the copied state.
+                for (String input : moves) {
+                    String[] commands = input.split(Protocol.LIST_SEPARATOR);
+                    if (commands.length == 5 && commands[0].equalsIgnoreCase(Protocol.ACTION_MOVE) && currentgame.getCurrentPlayer().madeInitialMeld()) {
+                        // Parse "move" commands and attempt to apply the move to the copied game table.
+                        TileMovement tileMovement = new TileMovement(Integer.parseInt(commands[1]), commands[2], Integer.parseInt(commands[3]), Integer.parseInt(commands[4]));
+                        try {
+                            tileMovement.makeMove(copy); // Simulate the move on the copied game table.
+                        } catch (GameException e) {
+                            // If the move is invalid, notify the client and increment the invalid action counter.
+                            sendInvalid(ch, Protocol.INVALID_ILLEGAL_ACTION);
+                            invalidActions++;
+                            break;
+                        }
+                    } else if (commands.length == 4 && commands[0].equalsIgnoreCase(Protocol.ACTION_PLACE)) {
+                        String tileToPlace = commands[1];
+                        tileHistory.add(tileToPlace);
+                        int toTileSet = Integer.parseInt(commands[2]);
+                        int toIndexInTileSet = Integer.parseInt(commands[3]);
+                        // Attempt to place the specified tile into the new tile set at the specified position.
+                        TilePlacement tilePlacement = new TilePlacement(tileToPlace, toTileSet, toIndexInTileSet);
+                        try {
+                            // Simulate the tile placement on the copied game table.
+                            tilePlacement.makeMove(copy, currentgame.getCurrentPlayer().getRack());
+                        } catch (GameException e) {
+                            // If an error occurs (e.g., player doesn't own the tile), notify the client and exit processing.
+                            sendInvalid(ch, Protocol.INVALID_TILE_NOT_OWNED);
+                            invalidActions++;
+                            break;
+                        }
+                        if (!currentgame.getCurrentPlayer().madeInitialMeld()) {
+                            //Store all the tiles placed in the table, together with the associated set number
+                            if (tileSets.containsKey(toTileSet)) {
+                                tileSets.get(toTileSet).add(tileToPlace);
+                            } else {
+                                List<String> tileList = new ArrayList<>();
+                                tileList.add(tileToPlace);
+                                tileSets.put(toTileSet, tileList);
+                            }
+                        }
+                    } else {
+                        sendInvalid(ch, Protocol.INVALID_UNKNOWN_COMMAND);
+                        invalidActions++;
+                        replaceTiles(tileHistory);
+                        break;
+                    }
+
+                    if (input.contains(Protocol.ACTION_MOVE) || input.contains(Protocol.ACTION_PLACE))
+                        currentgame.getCurrentPlayer().addToMoveHistory(input);
+                }
+                if (!currentgame.getCurrentPlayer().madeInitialMeld() && invalidActions == 0) {
+                    int meldScore = currentgame.computeMeldScore(currentgame.getCurrentPlayer().getMoveHistory(), copy);
+                    // If there are any sets with less than 3 tiles in tileSets, the initial meld is invalid
+                    for (int set : tileSets.keySet()) {
+                        if (tileSets.get(set).size() < 3) {
+                            meldScore = 0;
+                            break;
+                        }
+                    }
+                    if (meldScore < 30) {
+                        currentgame.getCurrentPlayer().drawFromPool(currentgame.getPool(), 1);
+                        currentgame.getCurrentPlayer().getMoveHistory().clear();
+                        // Place all tiles back in rack
+                        for (String tile : tileHistory) {
+                            if (tile.equals("J")) {
+                                currentgame.getCurrentPlayer().getRack().add(new Tile(0, null));
+                            } else {
+                                currentgame.getCurrentPlayer().getRack().add(new Tile(Integer.parseInt(tile.substring(1)), TileColor.fromAbbreviation(tile.substring(0, 1))));
+                            }
+                        }
+                        sendInvalid(ch, Protocol.INVALID_INSUFFICIENT_POINTS);
+                        invalidActions++;
+                    } else {
+                        currentgame.getCurrentPlayer().setInitialMeld();
+                    }
+                }
+
+                if (currentgame.getCurrentPlayer().madeInitialMeld() && invalidActions == 0) {
+                    if (copy.isTableValid()) {
+                        // If the updated table is valid, update the current game state with the new table configuration.
+                        currentgame.updateTable(copy);
+                        // Remove successfully placed tiles from the player's rack.
+                        for (String tile : tileHistory) {
+                            currentgame.getCurrentPlayer().getRack().removeIf(rackTile -> rackTile.toString().equals(tile));
+                        }
+                    } else {
+                        replaceTiles(tileHistory);
+                        // Notify the client of an invalid action.
                         sendInvalid(ch, Protocol.INVALID_ILLEGAL_ACTION);
-                        invalidActions++;
                     }
-                } else if (commands.length == 4 && commands[0].equalsIgnoreCase(Protocol.ACTION_PLACE)) {
-                    String tileToPlace = commands[1];
-                    tileHistory.add(tileToPlace);
-                    int toTileSet = Integer.parseInt(commands[2]);
-                    int toIndexInTileSet = Integer.parseInt(commands[3]);
-                    // Attempt to place the specified tile into the new tile set at the specified position.
-                    TilePlacement tilePlacement = new TilePlacement(tileToPlace, toTileSet, toIndexInTileSet);
-                    print("Get rack of player: " + currentgame.getCurrentPlayer().getRack());
-                    try {
-                        // Simulate the tile placement on the copied game table.
-                        tilePlacement.makeMove(copy, currentgame.getCurrentPlayer().getRack());
-                    } catch (GameException e) {
-                        // If an error occurs (e.g., player doesn't own the tile), notify the client and exit processing.
-                        sendInvalid(ch, Protocol.INVALID_TILE_NOT_OWNED);
-                        invalidActions++;
-                        break;
-                    }
-                    if (!currentgame.getCurrentPlayer().madeInitialMeld()) {
-                        //Store all the tiles placed in the table, together with the associated set number
-                        if (tileSets.containsKey(toTileSet)) {
-                            tileSets.get(toTileSet).add(tileToPlace);
-                        } else {
-                            List<String> tileList = new ArrayList<>();
-                            tileList.add(tileToPlace);
-                            tileSets.put(toTileSet, tileList);
-                        }
-                    }
-                } else {
-                    sendInvalid(ch, Protocol.INVALID_UNKNOWN_COMMAND);
-                    invalidActions++;
-                }
-
-                if (input.contains(Protocol.ACTION_MOVE) || input.contains(Protocol.ACTION_PLACE))
-                    currentgame.getCurrentPlayer().addToMoveHistory(input);
-            }
-            print("Moves History: " + currentgame.getCurrentPlayer().getMoveHistory());
-            if (!currentgame.getCurrentPlayer().madeInitialMeld() && invalidActions == 0) {
-                print("Moves History: " + currentgame.getCurrentPlayer().getMoveHistory());
-                print("Copy Board: " + copy);
-                int meldScore = currentgame.computeMeldScore(currentgame.getCurrentPlayer().getMoveHistory(), copy);
-                print("Meld score: " + meldScore);
-                // If there are any sets with less than 3 tiles in tileSets, the initial meld is invalid
-                for (int set : tileSets.keySet()) {
-                    if (tileSets.get(set).size() < 3) {
-                        meldScore = 0;
-                        break;
-                    }
-                }
-                if (meldScore < 30) {
-                    currentgame.getCurrentPlayer().drawFromPool(currentgame.getPool(), 1);
-                    currentgame.getCurrentPlayer().getMoveHistory().clear();
-                    // Place all tiles back in rack
-                    for (String tile : tileHistory) {
-                        if (tile.equals("J")) {
-                            currentgame.getCurrentPlayer().getRack().add(new Tile(0, null));
-                        } else {
-                            currentgame.getCurrentPlayer().getRack().add(new Tile(Integer.parseInt(tile.substring(1)), TileColor.fromAbbreviation(tile.substring(0, 1))));
-                        }
-                    }
-                    sendInvalid(ch, Protocol.INVALID_INSUFFICIENT_POINTS);
-                    invalidActions++;
-                } else {
-                    currentgame.getCurrentPlayer().setInitialMeld();
                 }
             }
-
-            if (currentgame.getCurrentPlayer().madeInitialMeld() && invalidActions == 0) {
-                if (copy.isTableValid()) {
-                    // If the updated table is valid, update the current game state with the new table configuration.
-                    currentgame.updateTable(copy);
-                    // Remove successfully placed tiles from the player's rack.
-                    for (String tile : tileHistory) {
-                        currentgame.getCurrentPlayer().getRack().removeIf(rackTile -> rackTile.toString().equals(tile));
-                    }
-                } else {
-                    // If the table is invalid, penalize the player by drawing from the pool and resetting their move history.
-                    currentgame.getCurrentPlayer().drawFromPool(currentgame.getPool(), 1);
-                    currentgame.getCurrentPlayer().getMoveHistory().clear();
-                
-                    // Place all tiles back into the player's rack.
-                    for (String tile : tileHistory) {
-                        if (tile.equals("J")) {
-                            currentgame.getCurrentPlayer().getRack().add(new Tile(0, null));
-                        } else {
-                            currentgame.getCurrentPlayer().getRack().add(new Tile(Integer.parseInt(tile.substring(1)), TileColor.fromAbbreviation(tile.substring(0, 1))));
-                        }
-                    }
-                
-                    // Notify the client of an invalid action.
-                    sendInvalid(ch, Protocol.INVALID_ILLEGAL_ACTION);
-                }
-            }
+        } else {
+            currentgame.getCurrentPlayer().drawFromPool(currentgame.getPool(), 3);
+            sendTimeout(ch);
         }
         currentgame.getCurrentPlayer().getMoveHistory().clear();
         sendHand(ch); // send hand to current player
@@ -479,6 +433,20 @@ public class Server extends Thread {
         }
     }
 
+    public void replaceTiles(List<String> tileHistory){
+        // If the table is invalid, penalize the player by drawing from the pool and resetting their move history.
+        currentgame.getCurrentPlayer().drawFromPool(currentgame.getPool(), 1);
+        currentgame.getCurrentPlayer().getMoveHistory().clear();
+
+        // Place all tiles back into the player's rack.
+        for (String tile : tileHistory) {
+            if (tile.equals("J")) {
+                currentgame.getCurrentPlayer().getRack().add(new Tile(0, null));
+            } else {
+                currentgame.getCurrentPlayer().getRack().add(new Tile(Integer.parseInt(tile.substring(1)), TileColor.fromAbbreviation(tile.substring(0, 1))));
+            }
+        }
+    }
 
     /**
      * Restarts the round if all players agree.

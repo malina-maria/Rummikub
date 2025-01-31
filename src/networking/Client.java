@@ -103,7 +103,6 @@ public class Client extends Thread {
      */
     public void decodeServerMsg(String msg) throws GameException {
         String[] data = Protocol.decodeArgs(msg);
-        System.out.println("Incoming msg >> " + msg);
         String command = data[0];
     
         switch (command) {
@@ -201,9 +200,7 @@ public class Client extends Thread {
      */
     public void sendMessage(String msg) {
         msg = msg.replace(" ", "");
-        System.out.println("sending to server: " + msg);
         output.write(msg + "\n");
-        System.out.println("sent!");
         output.flush();
     }
 

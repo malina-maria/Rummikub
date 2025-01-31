@@ -36,16 +36,19 @@ public class SmartComputerPlayer extends Player {
      */
     public boolean playTurn(List<Tile> pool) {
         moveHistory.clear(); // Clear AI's moves for this turn
-
+        List<Tile> removedTiles = new ArrayList<>();
         if (!madeInitialMeld()) {
             List<Sets> initialMeld = findInitialMeld();
             if (!initialMeld.isEmpty() && calculateScore(initialMeld) >= 30) {
                 for (Sets meld : initialMeld) {
                     table.addSet(meld);
+                    removeFromRack(meld.getTiles());
+                    removedTiles.addAll(meld.getTiles());
                     addMovesToHistory(meld.getTiles(), table.getBoard().size()-1); // Track AI's moves
-                    System.out.println(getName() + " played initial meld: " + meld.getTiles());
+                    //System.out.println(getName() + " played initial meld: " + meld.getTiles());
                 }
                 setInitialMeld();
+                rack.addAll(removedTiles);
                 return true;
             } else {
                 //drawFromPool(pool, 1);
@@ -59,7 +62,7 @@ public class SmartComputerPlayer extends Player {
             for (Sets move : validMoves) {
                 table.addSet(move);
                 addMovesToHistory(move.getTiles(), table.getBoard().size()-1); // Track AI's moves
-                System.out.println(getName() + " played: " + move.getTiles());
+                //System.out.println(getName() + " played: " + move.getTiles());
             }
             return true;
         } else {
@@ -168,8 +171,21 @@ public class SmartComputerPlayer extends Player {
      */
     private List<Sets> findValidMoves() {
         List<Sets> validMoves = new ArrayList<>();
-        validMoves.addAll(findGroups());
+        List<Sets> groups = findGroups();
+        validMoves.addAll(groups);
+        
+        // Temporarily remove tiles used in groups from the rack
+        List<Tile> removedTiles = new ArrayList<>();
+        for (Sets group : groups) {
+            removedTiles.addAll(group.getTiles());
+        }
+        rack.removeAll(removedTiles);
+        
         validMoves.addAll(findRuns());
+        
+        // Add the removed tiles back to the rack
+        rack.addAll(removedTiles);
+        
         return validMoves;
     }
 
@@ -199,6 +215,7 @@ public class SmartComputerPlayer extends Player {
 
         // Try forming groups (same number, different colors)
         for (Map.Entry<Integer, List<Tile>> entry : numberToTiles.entrySet()) {
+            List<Tile> removedTiles = new ArrayList<>();
             List<Tile> sameNumberTiles = entry.getValue();
             Set<TileColor> usedColors = new HashSet<>();
             List<Tile> group = new ArrayList<>();
